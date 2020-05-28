@@ -15,7 +15,7 @@ type DB struct {
 	Error  []errors.Error
 }
 
-var defaultDb *DB
+var defaultDb map[string] *DB
 
 type SqlInfo struct {
 	tableName	string
@@ -23,10 +23,17 @@ type SqlInfo struct {
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
+
+	driverName 	string
+	db 			*DB
 }
 
-func SetDb(db *DB) {
-	defaultDb = db
+func SetDb(name string, db *DB) error {
+	if _, ok := defaultDb[name]; ok {
+		return errors.New("%s db is exist.",name)
+	}
+	defaultDb[name] = db
+	return nil
 }
 
 func NewSql(driverName,dataSource string) (*DB,error) {
@@ -42,7 +49,7 @@ func NewSql(driverName,dataSource string) (*DB,error) {
 }
 
 func (db *DB)PrepareSql() *SqlInfo{
-	return &SqlInfo{}
+	return &SqlInfo{driverName: db.DriverName}
 }
 
 func (db *DB) Select(s *SqlInfo, dest ...interface{}) error {
@@ -77,7 +84,7 @@ func (s *SqlInfo)Table(tableName string) *SqlInfo {
 }
 func (s *SqlInfo)Query(args... string) *SqlInfo {
 	rawQuery := strings.Join(args,",")
-	s.sql = util.Join(" ","SELECT", "FROM", s.tableName, rawQuery)
+	s.sql = util.Join(" ","SELECT",  rawQuery, "FROM", s.tableName)
 	return s
 }
 
@@ -122,8 +129,11 @@ func(s *SqlInfo)done()*SqlInfo {
 }
 
 func (s *SqlInfo) Insert(args... string) *SqlInfo {
-	var ph string
-	for i := 0; i < len(args); i++ {
+	if len(args) == 0 {
+		return s
+	}
+	var ph = "?"
+	for i := 0; i < len(args)-1; i++ {
 		ph = util.Join("," ,ph, "?")
 	}
 	ph = "VALUES (" + ph + ")"
@@ -136,11 +146,14 @@ func (s *SqlInfo) Insert(args... string) *SqlInfo {
 }
 
 func (s *SqlInfo) Update(args... string) *SqlInfo {
+	if len(args) == 0 {
+		return s
+	}
 	var param string
-	for _,v := range args {
+	for _,v := range args[:] {
 		param = util.Join(",", param, v + "=?")
 	}
-	s.sql = util.Join(" ","UPDATE", s.tableName, "SET", param)
+	s.sql = util.Join(" ","UPDATE", s.tableName, "SET", param[1:])
 	return s
 }
 
@@ -149,6 +162,8 @@ func (s *SqlInfo)Values(args... interface{}) *SqlInfo {
 	s.values = append(s.values,args...)
 	return s
 }
+
+
 
 func (s *SqlInfo)Done()(string,[]interface{}) {
 	s.done()
