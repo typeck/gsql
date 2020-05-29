@@ -3,32 +3,19 @@ package gsql
 import (
 	"database/sql"
 	"github.com/typeck/gsql/errors"
-	"github.com/typeck/gsql/util"
-	"strings"
 )
 
 // Wrapper of sql.DB
 type DB struct {
-	DriverName string
+	driverName string
 	*sql.DB
 	logger Logger
-	Error  []errors.Error
 }
+
 
 var defaultDb map[string] *DB
 
-type SqlInfo struct {
-	tableName	string
-	sql  		string
-	method 		[]string
-	condition	[]string
-	values 		[]interface{}
-
-	driverName 	string
-	db 			*DB
-}
-
-func SetDb(name string, db *DB) error {
+func SetDefaultDb(name string, db *DB) error {
 	if _, ok := defaultDb[name]; ok {
 		return errors.New("%s db is exist.",name)
 	}
@@ -45,127 +32,42 @@ func NewSql(driverName,dataSource string) (*DB,error) {
 	if err != nil {
 		return nil,err
 	}
-	return &DB{DriverName: driverName,DB: db},nil
+	return &DB{driverName: driverName,DB: db},nil
 }
 
 func (db *DB)PrepareSql() *SqlInfo{
-	return &SqlInfo{driverName: db.DriverName}
+	return &SqlInfo{driverName: db.driverName}
 }
 
-func (db *DB) Select(s *SqlInfo, dest ...interface{}) error {
+func (db *DB)Execx(s *SqlInfo, dest ...interface{}) *result {
+	var res *result
+	if s.isQuery {
+		db.query(s).scan(dest...)
+		return res
+	}
+
+	return db.exec(s,dest)
+}
+
+func (db *DB) query(s *SqlInfo) *result {
 	s.done()
 	rows, err := db.Query(s.sql, s.values...)
-	if err != nil {
-		return errors.New("err:%v,sql:%s",err,s.sql)
+	return &result{
+		rows: rows,
+		error: err,
 	}
-	defer rows.Close()
 
-	for _, dp := range dest {
-		if _, ok := dp.(*sql.RawBytes); ok {
-			return errors.New("sql: RawBytes isn't allowed on Row.Scan")
-		}
-	}
-	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		return sql.ErrNoRows
-	}
-	err = rows.Scan(dest...)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
-func (s *SqlInfo)Table(tableName string) *SqlInfo {
-	s.tableName = tableName
-	return s
-}
-func (s *SqlInfo)Query(args... string) *SqlInfo {
-	rawQuery := strings.Join(args,",")
-	s.sql = util.Join(" ","SELECT",  rawQuery, "FROM", s.tableName)
-	return s
-}
-
-func (s *SqlInfo)Where(condition string, args... interface{}) *SqlInfo {
-
-	s.method = append(s.method,"WHERE")
-	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
-	return s
-}
-
-func (s *SqlInfo)And(condition string, args... interface{}) *SqlInfo {
-
-	s.method = append(s.method,"AND")
-	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
-	return s
-}
-
-func (s *SqlInfo)Or(condition string, args... interface{}) *SqlInfo {
-
-	s.method = append(s.method,"OR")
-	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
-	return s
-}
-
-func(s *SqlInfo)Raw(condition string, args... interface{}) *SqlInfo {
-
-	s.method = append(s.method,"")
-	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
-	return s
-}
-
-func(s *SqlInfo)done()*SqlInfo {
-
-	for i, method := range s.method {
-		s.sql = util.Join(" ",s.sql, method, s.condition[i])
-	}
-	return s
-}
-
-func (s *SqlInfo) Insert(args... string) *SqlInfo {
-	if len(args) == 0 {
-		return s
-	}
-	var ph = "?"
-	for i := 0; i < len(args)-1; i++ {
-		ph = util.Join("," ,ph, "?")
-	}
-	ph = "VALUES (" + ph + ")"
-
-	columns := util.Join("," , args...)
-
-	s.sql = util.Join(" ", "INSERT INTO ",s.tableName, "(", columns , ")", ph)
-
-	return s
-}
-
-func (s *SqlInfo) Update(args... string) *SqlInfo {
-	if len(args) == 0 {
-		return s
-	}
-	var param string
-	for _,v := range args[:] {
-		param = util.Join(",", param, v + "=?")
-	}
-	s.sql = util.Join(" ","UPDATE", s.tableName, "SET", param[1:])
-	return s
-}
-
-func (s *SqlInfo)Values(args... interface{}) *SqlInfo {
-
-	s.values = append(s.values,args...)
-	return s
-}
-
-
-
-func (s *SqlInfo)Done()(string,[]interface{}) {
+func(db *DB) exec(s *SqlInfo, dest ...interface{}) *result {
 	s.done()
-	return s.sql, s.values
+	if len(dest) != 0 {
+		s.values = append(s.values, dest...)
+	}
+	res, err := db.Exec(s.sql, s.values)
+	return &result{
+		result: res,
+		error: err,
+	}
 }
+

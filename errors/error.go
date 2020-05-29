@@ -1,6 +1,8 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Error interface {
 	Error() string
@@ -10,12 +12,12 @@ type Error interface {
 type gError struct {
 	msg 		string
 }
+
 func (g* gError)Error() string {
 	return g.msg
 }
 
 func New(format string, a ...interface{})Error {
-	return &gError{
-		msg:fmt.Sprintf(format, a...),
-	}
+
+	return fmt.Errorf(format, a...)
 }

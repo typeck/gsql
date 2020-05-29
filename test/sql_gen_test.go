@@ -9,7 +9,7 @@ func TestQuery(t *testing.T) {
 	sql := gsql.SqlInfo{}
 	s,values := sql.Table("user").Query("name","company").
 		Where("status=? AND company=?",1,"goo").
-		And("age>?",10).Raw("email like ?","%com%").Done()
+		And("age>?",10).And("email like ?","%com%").Raw("limit ?,?",1,10).Done()
 	t.Log(s,values)
 }
 
