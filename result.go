@@ -21,6 +21,9 @@ func (r *result)LastInsertId()(int64, error) {
 	if r.error != nil {
 		return 0, r.error
 	}
+	if r.result == nil {
+		return 0,errors.New("wrong call.")
+	}
 	return r.result.LastInsertId()
 }
 
@@ -28,11 +31,17 @@ func(r *result)RowsAffected()(int64, error) {
 	if r.error != nil {
 		return 0, r.error
 	}
+	if r.result == nil {
+		return 0,errors.New("wrong call.")
+	}
+
 	return r.result.RowsAffected()
 }
 
 func (r *result)Rows() (*sql.Rows, error) {
-
+	if r.rows == nil {
+		return nil, errors.New("rows is nil.")
+	}
 	return r.rows, r.error
 }
 
@@ -59,5 +68,9 @@ func( r *result)scan(dest ...interface{})  {
 	if err != nil {
 		r.error = err
 	}
+}
+
+func Get(dest interface{}) *result {
+
 }
 

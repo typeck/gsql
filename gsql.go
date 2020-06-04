@@ -3,6 +3,7 @@ package gsql
 import (
 	"database/sql"
 	"github.com/typeck/gsql/errors"
+	"reflect"
 )
 
 // Wrapper of sql.DB
@@ -10,6 +11,7 @@ type DB struct {
 	driverName string
 	*sql.DB
 	logger Logger
+	orm    *Orm
 }
 
 
@@ -32,14 +34,18 @@ func NewSql(driverName,dataSource string) (*DB,error) {
 	if err != nil {
 		return nil,err
 	}
-	return &DB{driverName: driverName,DB: db},nil
+	return &DB{
+		driverName: driverName,
+		DB: 		db,
+		orm:		NewOrm(),
+	},nil
 }
 
 func (db *DB)PrepareSql() *SqlInfo{
 	return &SqlInfo{driverName: db.driverName}
 }
 
-func (db *DB)Execx(s *SqlInfo, dest ...interface{}) *result {
+func (db *DB)ExecSql(s *SqlInfo, dest ...interface{}) *result {
 	var res *result
 	if s.isQuery {
 		db.query(s).scan(dest...)
@@ -69,5 +75,12 @@ func(db *DB) exec(s *SqlInfo, dest ...interface{}) *result {
 		result: res,
 		error: err,
 	}
+}
+
+func(db *DB) get(s *SqlInfo, dest interface{}) *result {
+	s.done()
+	res := &result{}
+	orm := db.orm
+
 }
 
