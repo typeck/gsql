@@ -12,10 +12,11 @@ type SqlInfo struct {
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
-
+	isDebug 	bool
 	driverName 	string
 	db 			*DB
 }
+
 
 
 func (s *SqlInfo)Table(tableName string) *SqlInfo {
@@ -24,7 +25,7 @@ func (s *SqlInfo)Table(tableName string) *SqlInfo {
 }
 
 func (s *SqlInfo)Query(args... string) *SqlInfo {
-	rawQuery := strings.Join(args,",")
+	rawQuery := util.Join(",", args...)
 	s.sql = util.Join(" ","SELECT",  rawQuery, "FROM", s.tableName)
 	return s
 }
@@ -66,6 +67,13 @@ func(s *SqlInfo)done()*SqlInfo {
 	for i, method := range s.method {
 		s.sql = util.Join(" ",s.sql, method, s.condition[i])
 	}
+	if strings.Contains(strings.ToLower(s.sql),"select") {
+		s.isQuery = true
+	}
+	if s.isDebug {
+		str := strings.ReplaceAll(s.sql, "?", "%v")
+		s.db.logger.Printf(str, s.values...)
+	}
 	return s
 }
 
@@ -103,7 +111,10 @@ func (s *SqlInfo)Values(args... interface{}) *SqlInfo {
 	s.values = append(s.values,args...)
 	return s
 }
-
+func (s *SqlInfo)Debug() *SqlInfo{
+	s.isDebug = true
+	return s
+}
 //func(s *SqlInfo)Select(sqlInfo *SqlInfo, dest ...interface{}) error {
 //	if s.db == nil {
 //		return errors.New("must set default db.")
