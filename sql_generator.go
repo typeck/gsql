@@ -51,22 +51,41 @@ func (s *sqlBuilder)writeStrings(args... string) {
 }
 
 
-func (s *SqlInfo)Query(dest... interface{}) *SqlInfo {
+func (s *SqlInfo)Query(dest... interface{}) *result {
 	s.values = dest
 	s.action = "SELECT"
-	return s
+	return s.db.queryVal(s, dest...)
 }
 
-func (s *SqlInfo) Insert(dest... interface{}) *SqlInfo {
+func (s *SqlInfo) Exec(action string, dest... interface{}) *result {
+	s.action = strings.ToUpper(action)
+	s.values = dest
+	s.values = append(s.values, s.params...)
+	return s.db.exec(s)
+}
+
+func (s *SqlInfo) Insert(dest... interface{}) *result {
 	s.action = "INSERT"
 	s.values = dest
-	return s
+	s.values = append(s.values, s.params...)
+	return s.db.exec(s)
 }
 
-func (s *SqlInfo) Update(dest... interface{}) *SqlInfo {
+func (s *SqlInfo) Update(dest... interface{}) *result {
 	s.action = "UPDATE"
 	s.values = dest
-	return s
+	s.values = append(s.values, s.params...)
+	return s.db.exec(s)
+}
+
+func(s *SqlInfo) Get(dest interface{}) *result {
+	s.action = "SELECT"
+	return s.db.get(s, dest)
+}
+
+func(s *SqlInfo) Gets(dest interface{}) *result {
+	s.action = "SELECT"
+	return s.db.gets(s, dest)
 }
 
 func (s *SqlInfo)Table(tableName string) *SqlInfo {
@@ -162,7 +181,19 @@ func (s *SqlInfo)buildInsert() {
 }
 
 func(s *SqlInfo) buildUpdate() {
-
+	s.sql.writeStrings("UPDATE ", s.tableName, "SET ")
+	if len(s.cols) > 0 {
+		switch len(s.cols) {
+		case 1:
+			s.sql.writeStrings(s.cols[0], "=?,")
+		default:
+			s.sql.writeStrings(s.cols[0], "=?,")
+			for _, v:= range s.cols[1:] {
+				s.sql.writeStrings(",", v, "=?")
+			}
+		}
+	}
+	s.buildCondition()
 }
 
 func (s *SqlInfo)Debug() *SqlInfo{

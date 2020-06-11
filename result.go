@@ -87,29 +87,13 @@ func (r *result) scan(orm *Orm, dest interface{}) {
 	r.scanValues(values...)
 }
 
-func (r *result) scanAll(orm *Orm, dest interface{}) {
+func (r *result) scanAll(orm *Orm, dest interface{},structInfo *structInfo, sliceInfo *sliceInfo) {
 	if r.error != nil {
 		return
 	}
 	defer r.rows.Close()
 	cols, err := r.rows.Columns()
 	if err != nil{
-		r.error = err
-		return
-	}
-
-	cacheKey := unpackEFace(dest).typ
-
-	sliceInfo,err := orm.getSlice(cacheKey, dest)
-	if err != nil {
-		r.error = err
-		return
-	}
-	if sliceInfo == nil {
-		r.error = errors.New("slice info is nil.")
-	}
-	structInfo, err := orm.getStructInfoByType(sliceInfo.elemTyp)
-	if err != nil {
 		r.error = err
 		return
 	}

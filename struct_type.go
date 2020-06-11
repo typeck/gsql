@@ -2,6 +2,7 @@ package gsql
 
 import (
 	"github.com/typeck/gsql/errors"
+	"github.com/typeck/gsql/util"
 	"reflect"
 	"strings"
 )
@@ -33,8 +34,9 @@ func(s *structInfo) unwrap(t reflect.Type, tagName string)  error {
 	if t.Kind() != reflect.Struct {
 		return  errors.New("must pass a struct pointer.")
 	}
-	size := t.NumField()
+	s.name = util.ToSnakeCase(t.Name())
 
+	size := t.NumField()
 	var field structField
 	for i := 0; i < size; i++ {
 		tags := t.Field(i).Tag.Get(tagName)
@@ -52,6 +54,17 @@ func(s *structInfo) unwrap(t reflect.Type, tagName string)  error {
 	}
 
 	return nil
+}
+
+func(s *structInfo) invokeCols(sl *SqlInfo) {
+	if sl.tableName == "" {
+		sl.tableName = s.name
+	}
+	if len(sl.cols) == 0 {
+		for k, _ := range s.fields {
+			sl.cols = append(sl.cols, k)
+		}
+	}
 }
 
 

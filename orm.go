@@ -62,7 +62,6 @@ func (o *Orm)getStructInfo(typ _type, dest interface{}) (*structInfo, error){
 	if value, ok := o.structCache.Load(typ); ok {
 		return value.(*structInfo), nil
 	}
-
 	t := reflect.TypeOf(dest)
 
 	s := newStructInfo()
@@ -97,3 +96,22 @@ func(o *Orm)getSlice(typ _type, dest interface{}) (*sliceInfo, error){
 
 	return s, nil
 }
+
+func(o *Orm) invokeCols(s *SqlInfo,dest interface{}) error {
+	if s.tableName != "" && len(s.cols) > 0{
+		return nil
+	}
+	typ := unpackEFace(dest).typ
+
+	structInfo, err := o.getStructInfo(typ, dest)
+	if err != nil {
+		return  err
+	}
+	if structInfo == nil {
+		return  errors.New("nil struct map cache.")
+	}
+	structInfo.invokeCols(s)
+
+	return  nil
+}
+

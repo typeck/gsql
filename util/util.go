@@ -1,6 +1,9 @@
 package util
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 func Join(sep string, a... string) string {
 	switch len(a) {
@@ -22,4 +25,13 @@ func Join(sep string, a... string) string {
 		b.WriteString(s)
 	}
 	return b.String()
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func ToSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
 }

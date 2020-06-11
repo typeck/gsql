@@ -2,6 +2,7 @@ package gsql
 
 import (
 	"database/sql"
+	"github.com/typeck/gsql/errors"
 	"log"
 	"os"
 )
@@ -37,29 +38,16 @@ func (db *DB)PrepareSql() *SqlInfo{
 	return &SqlInfo{driverName: db.driverName, db: db}
 }
 
-func (db *DB)ExecSql(s *SqlInfo, dest ...interface{}) *result {
-	s.done()
-	if s.isQuery {
-		res := db.queryRows(s)
-		res.scanValues(dest...)
-		return res
-	}
-
-	return db.exec(s,dest)
-}
-//TODO: use struct tag as query params in orm mode
-func (db *DB) Scan(s *SqlInfo, dest interface{}) *result {
-	s.done()
-	return db.get(s, dest)
+func (db *DB) queryVal(s *SqlInfo, dest... interface{}) *result {
+	res := db.query(s)
+	res.scanValues(dest...)
+	return res
 }
 
-func (db *DB) ScanAll(s *SqlInfo, dest interface{}) *result {
+func (db *DB) query(s *SqlInfo) *result {
 	s.done()
-	return db.gets(s, dest)
-}
 
-func (db *DB) queryRows(s *SqlInfo) *result {
-	rows, err := db.Query(s.sql, s.values...)
+	rows, err := db.Query(s.sql.String(), s.params...)
 	return &result{
 		rows: rows,
 		error: err,
@@ -67,11 +55,9 @@ func (db *DB) queryRows(s *SqlInfo) *result {
 
 }
 
-func(db *DB) exec(s *SqlInfo, dest ...interface{}) *result {
-	if len(dest) != 0 {
-		s.values = append(s.values, dest...)
-	}
-	res, err := db.Exec(s.sql, s.values)
+func(db *DB) exec(s *SqlInfo) *result {
+	s.done()
+	res, err := db.Exec(s.sql.String(), s.values)
 	return &result{
 		result: res,
 		error: err,
@@ -80,8 +66,14 @@ func(db *DB) exec(s *SqlInfo, dest ...interface{}) *result {
 
 func(db *DB) get(s *SqlInfo, dest interface{}) *result {
 	orm := db.orm
+	 res := &result{}
+	err := orm.invokeCols(s, dest)
+	if err != nil {
+		res.error = err
+		return res
+	}
 
-	res := db.queryRows(s)
+	res = db.query(s)
 	if res.error != nil {
 		return res
 	}
@@ -90,13 +82,32 @@ func(db *DB) get(s *SqlInfo, dest interface{}) *result {
 	return res
 }
 
+
 func (db *DB) gets(s *SqlInfo, dest interface{}) *result {
 	orm := db.orm
-	res := db.queryRows(s)
+	res := &result{}
+	cacheKey := unpackEFace(dest).typ
+
+	sliceInfo,err := orm.getSlice(cacheKey, dest)
+	if err != nil {
+		res.error = err
+		return res
+	}
+	if sliceInfo == nil {
+		res.error = errors.New("slice info is nil.")
+	}
+	structInfo, err := orm.getStructInfoByType(sliceInfo.elemTyp)
+	if err != nil {
+		res.error = err
+		return res
+	}
+	structInfo.invokeCols(s)
+
+	res = db.query(s)
 	if res.error != nil {
 		return res
 	}
-	res.scanAll(orm, dest)
+	res.scanAll(orm, dest, structInfo, sliceInfo)
 	return res
 }
 
