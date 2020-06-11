@@ -1,40 +1,96 @@
 package gsql
 
 import (
-	"github.com/typeck/gsql/util"
 	"strings"
 )
 
 type SqlInfo struct {
 	tableName	string
-	sql  		string
-	isQuery 	bool
+	sql  		sqlBuilder
+	action 		string
+	cols 		[]string
+	params 		[]interface{}
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
+	rawSql 		string
 	isDebug 	bool
 	driverName 	string
 	db 			*DB
 }
 
+type sqlBuilder struct {
+	strings.Builder
+}
 
+func(s *sqlBuilder)joinWith(with string, sep string, a... string) {
+	s.Builder.WriteString(with)
+	switch len(a) {
+	case 0:
+		return
+	case 1:
+		s.Builder.WriteString(a[0])
+		return
+	}
+	n := len(sep) * (len(a) - 1)
+	for i := 0; i < len(a); i++ {
+		n += len(a[i])
+	}
+	s.Builder.Grow(n)
+	s.Builder.WriteString(a[0])
+	for _, ss := range a[1:] {
+		s.Builder.WriteString(sep)
+		s.Builder.WriteString(ss)
+	}
+}
+
+func (s *sqlBuilder)writeStrings(args... string) {
+	for _,v := range args {
+		s.Builder.WriteString(v)
+	}
+}
+
+
+func (s *SqlInfo)Query(dest... interface{}) *SqlInfo {
+	s.values = dest
+	s.action = "SELECT"
+	return s
+}
+
+func (s *SqlInfo) Insert(dest... interface{}) *SqlInfo {
+	s.action = "INSERT"
+	s.values = dest
+	return s
+}
+
+func (s *SqlInfo) Update(dest... interface{}) *SqlInfo {
+	s.action = "UPDATE"
+	s.values = dest
+	return s
+}
 
 func (s *SqlInfo)Table(tableName string) *SqlInfo {
 	s.tableName = tableName
 	return s
 }
 
-func (s *SqlInfo)Query(args... string) *SqlInfo {
-	rawQuery := util.Join(",", args...)
-	s.sql = util.Join(" ","SELECT",  rawQuery, "FROM", s.tableName)
+func (s *SqlInfo)Cols(cols... string) *SqlInfo {
+	s.cols = cols
 	return s
 }
 
+func (s *SqlInfo)RawSql(sql string) *SqlInfo {
+	s.rawSql = sql
+	return s
+}
+
+//where(id=?, 2)
+//where(id=? AND name=?,2, jack)
 func (s *SqlInfo)Where(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"WHERE")
 	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
+	s.params = append(s.params, args...)
 	return s
 }
 
@@ -42,7 +98,7 @@ func (s *SqlInfo)And(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"AND")
 	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
+	s.params = append(s.params,args...)
 	return s
 }
 
@@ -50,7 +106,7 @@ func (s *SqlInfo)Or(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"OR")
 	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
+	s.params = append(s.params,args...)
 	return s
 }
 
@@ -58,72 +114,64 @@ func(s *SqlInfo)Raw(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"")
 	s.condition = append(s.condition,condition)
-	s.values = append(s.values,args...)
+	s.params = append(s.params,args...)
 	return s
 }
 
-func(s *SqlInfo)done()*SqlInfo {
+func(s *SqlInfo)buildCondition() {
 
 	for i, method := range s.method {
-		s.sql = util.Join(" ",s.sql, method, s.condition[i])
+		s.sql.writeStrings(" ", method, " ", s.condition[i])
 	}
-	if strings.Contains(strings.ToLower(s.sql),"select") {
-		s.isQuery = true
+}
+
+func(s *SqlInfo)done() {
+	switch s.action {
+	case "SELECT":
+		s.buildSelect()
+	case "INSERT":
+		s.buildInsert()
+	case "UPDATE":
+		s.buildUpdate()
 	}
+
 	if s.isDebug {
-		str := strings.ReplaceAll(s.sql, "?", "%v")
+		str := strings.ReplaceAll(s.sql.String(), "?", "%v")
 		s.db.logger.Printf(str, s.values...)
 	}
-	return s
 }
 
-func (s *SqlInfo) Insert(args... string) *SqlInfo {
-	if len(args) == 0 {
-		return s
-	}
-	var ph = "?"
-	for i := 0; i < len(args)-1; i++ {
-		ph = util.Join("," ,ph, "?")
-	}
-	ph = "VALUES (" + ph + ")"
-
-	columns := util.Join("," , args...)
-
-	s.sql = util.Join(" ", "INSERT INTO ",s.tableName, "(", columns , ")", ph)
-
-	return s
+func(s *SqlInfo)buildSelect() {
+	s.sql.Builder.WriteString("SElECT ")
+	s.sql.joinWith("", ",", s.cols...)
+	s.sql.writeStrings(" FROM ", s.tableName)
+	s.buildCondition()
 }
 
-func (s *SqlInfo) Update(args... string) *SqlInfo {
-	if len(args) == 0 {
-		return s
+func (s *SqlInfo)buildInsert() {
+	s.sql.writeStrings("INSERT INTO ", s.tableName)
+	var ph [] string
+	for _, v := range s.cols {
+		s.sql.joinWith(" (", ",", v)
+		ph = append(ph, "?")
 	}
-	var param string
-	for _,v := range args[:] {
-		param = util.Join(",", param, v + "=?")
-	}
-	s.sql = util.Join(" ","UPDATE", s.tableName, "SET", param[1:])
-	return s
+	s.sql.Builder.WriteString(")")
+	s.sql.joinWith(" VALUES (",",", ph...)
+	s.sql.Builder.WriteString(")")
+	s.buildCondition()
 }
 
-func (s *SqlInfo)Values(args... interface{}) *SqlInfo {
+func(s *SqlInfo) buildUpdate() {
 
-	s.values = append(s.values,args...)
-	return s
 }
+
 func (s *SqlInfo)Debug() *SqlInfo{
 	s.isDebug = true
 	return s
 }
-//func(s *SqlInfo)Select(sqlInfo *SqlInfo, dest ...interface{}) error {
-//	if s.db == nil {
-//		return errors.New("must set default db.")
-//	}
-//
-//	return s.db.query(sqlInfo, dest)
-//}
 
-func (s *SqlInfo)Done()(string,[]interface{}) {
-	s.done()
-	return s.sql, s.values
-}
+
+//func (s *SqlInfo)Done()(string,[]interface{}) {
+//	s.done()
+//	return s.sql, s.values
+//}

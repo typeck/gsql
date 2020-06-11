@@ -47,7 +47,7 @@ func (db *DB)ExecSql(s *SqlInfo, dest ...interface{}) *result {
 
 	return db.exec(s,dest)
 }
-
+//TODO: use struct tag as query params in orm mode
 func (db *DB) Scan(s *SqlInfo, dest interface{}) *result {
 	s.done()
 	return db.get(s, dest)

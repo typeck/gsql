@@ -16,6 +16,7 @@ type structField struct {
 
 
 type structInfo struct {
+	name 		string
 	//reflect type of *struct
 	typ 		reflect.Type
 	fields 		map[string] structField
