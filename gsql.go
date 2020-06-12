@@ -17,7 +17,7 @@ type DB struct {
 
 var defaultLog *log.Logger = log.New(os.Stdout, "[gsql]", log.Lshortfile|log.Ldate|log.Ltime)
 
-func NewSql(driverName,dataSource string) (*DB,error) {
+func NewDb(driverName,dataSource string) (*DB,error) {
 	db, err := sql.Open(driverName,dataSource)
 	if err != nil {
 		return nil , err
@@ -29,12 +29,12 @@ func NewSql(driverName,dataSource string) (*DB,error) {
 	return &DB{
 		driverName: driverName,
 		DB: 		db,
-		orm:		NewOrm(),
+		orm:		newOrm(),
 		logger: defaultLog,
 	},nil
 }
 
-func (db *DB)PrepareSql() *SqlInfo{
+func (db *DB)New() *SqlInfo{
 	return &SqlInfo{driverName: db.driverName, db: db}
 }
 
@@ -46,7 +46,6 @@ func (db *DB) queryVal(s *SqlInfo, dest... interface{}) *result {
 
 func (db *DB) query(s *SqlInfo) *result {
 	s.done()
-
 	rows, err := db.Query(s.sql.String(), s.params...)
 	return &result{
 		rows: rows,
@@ -57,7 +56,7 @@ func (db *DB) query(s *SqlInfo) *result {
 
 func(db *DB) exec(s *SqlInfo) *result {
 	s.done()
-	res, err := db.Exec(s.sql.String(), s.values)
+	res, err := db.Exec(s.sql.String(), s.values...)
 	return &result{
 		result: res,
 		error: err,
@@ -87,7 +86,7 @@ func (db *DB) gets(s *SqlInfo, dest interface{}) *result {
 	orm := db.orm
 	res := &result{}
 	cacheKey := unpackEFace(dest).typ
-
+	destPtr := unpackEFace(dest).data
 	sliceInfo,err := orm.getSlice(cacheKey, dest)
 	if err != nil {
 		res.error = err
@@ -107,7 +106,7 @@ func (db *DB) gets(s *SqlInfo, dest interface{}) *result {
 	if res.error != nil {
 		return res
 	}
-	res.scanAll(orm, dest, structInfo, sliceInfo)
+	res.scanAll(orm, destPtr, structInfo, sliceInfo)
 	return res
 }
 

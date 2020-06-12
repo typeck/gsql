@@ -129,11 +129,17 @@ func (s *SqlInfo)Or(condition string, args... interface{}) *SqlInfo {
 	return s
 }
 
-func(s *SqlInfo)Raw(condition string, args... interface{}) *SqlInfo {
+func(s *SqlInfo)Condition(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"")
 	s.condition = append(s.condition,condition)
 	s.params = append(s.params,args...)
+	return s
+}
+
+func(s *SqlInfo)Raw(raw string, dest... interface{})*SqlInfo {
+	s.rawSql = raw
+	s.values = dest
 	return s
 }
 
@@ -148,15 +154,23 @@ func(s *SqlInfo)done() {
 	switch s.action {
 	case "SELECT":
 		s.buildSelect()
+		if s.isDebug {
+			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+			s.db.logger.Printf(str, s.params...)
+		}
 	case "INSERT":
 		s.buildInsert()
+		if s.isDebug {
+			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+			s.db.logger.Printf(str, s.values...)
+		}
 	case "UPDATE":
 		s.buildUpdate()
-	}
+		if s.isDebug {
+			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+			s.db.logger.Printf(str, s.values...)
+		}
 
-	if s.isDebug {
-		str := strings.ReplaceAll(s.sql.String(), "?", "%v")
-		s.db.logger.Printf(str, s.values...)
 	}
 }
 
@@ -169,27 +183,37 @@ func(s *SqlInfo)buildSelect() {
 
 func (s *SqlInfo)buildInsert() {
 	s.sql.writeStrings("INSERT INTO ", s.tableName)
-	var ph [] string
+	var count int
 	for _, v := range s.cols {
 		s.sql.joinWith(" (", ",", v)
-		ph = append(ph, "?")
+		count += len(strings.Split(v, ","))
 	}
-	s.sql.Builder.WriteString(")")
-	s.sql.joinWith(" VALUES (",",", ph...)
+	s.sql.Builder.WriteString(") VALUES (")
+
+	s.sql.Builder.WriteString("?")
+	for i := 0; i < count-1; i++ {
+		s.sql.Builder.WriteString(", ?")
+	}
 	s.sql.Builder.WriteString(")")
 	s.buildCondition()
 }
 
 func(s *SqlInfo) buildUpdate() {
-	s.sql.writeStrings("UPDATE ", s.tableName, "SET ")
+	s.sql.writeStrings("UPDATE ", s.tableName, " SET ")
+	var tmp []string
+	for i, _ := range s.cols {
+		cols := strings.Split(s.cols[i], ",")
+		tmp = append(tmp, cols...)
+	}
+	s.cols = tmp
 	if len(s.cols) > 0 {
 		switch len(s.cols) {
 		case 1:
-			s.sql.writeStrings(s.cols[0], "=?,")
+			s.sql.writeStrings(s.cols[0], "=?")
 		default:
-			s.sql.writeStrings(s.cols[0], "=?,")
+			s.sql.writeStrings(s.cols[0], "=?")
 			for _, v:= range s.cols[1:] {
-				s.sql.writeStrings(",", v, "=?")
+				s.sql.writeStrings(", ", v, "=?")
 			}
 		}
 	}

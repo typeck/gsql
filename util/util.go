@@ -1,7 +1,9 @@
 package util
 
 import (
+	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -34,4 +36,17 @@ func ToSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
+}
+
+func String(v interface{})string{
+	switch first := v.(type) {
+	case string:
+		return first
+	case int:
+		return strconv.Itoa(first)
+	default:
+		data, _ := json.Marshal(v)
+		return string(data)
+	}
+
 }

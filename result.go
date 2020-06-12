@@ -3,7 +3,6 @@ package gsql
 import (
 	"database/sql"
 	"github.com/typeck/gsql/errors"
-	"reflect"
 	"unsafe"
 )
 
@@ -87,7 +86,7 @@ func (r *result) scan(orm *Orm, dest interface{}) {
 	r.scanValues(values...)
 }
 
-func (r *result) scanAll(orm *Orm, dest interface{},structInfo *structInfo, sliceInfo *sliceInfo) {
+func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *structInfo, sliceInfo *sliceInfo) {
 	if r.error != nil {
 		return
 	}
@@ -113,10 +112,12 @@ func (r *result) scanAll(orm *Orm, dest interface{},structInfo *structInfo, slic
 		}
 		// use reflect type of *struct to build **struct interface v
 		pPtr := &ptr
-		pTyp := reflect.PtrTo(structInfo.typ)
-		v := packEFace(_type(unpackEFace(pTyp).data), unsafe.Pointer(pPtr))
+		//pTyp := reflect.PtrTo(structInfo.typ)
+		//v := packEFace(_type(unpackEFace(pTyp).data), unsafe.Pointer(pPtr))
 
-		sliceInfo.typ2.Append(dest, v)
+		//it's safe, because the type of ptr are build and check strictly.
+		//the type of destPtr is []*struct; the type of pPtr is **struct
+		sliceInfo.typ2.UnsafeAppend(destPtr, unsafe.Pointer(pPtr))
 	}
 }
 

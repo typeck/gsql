@@ -13,7 +13,7 @@ type Orm struct {
 	sliceCache 			sync.Map//map[_type] SliceInfo
 }
 
-func NewOrm() *Orm {
+func newOrm() *Orm {
 	return &Orm{
 		tag:         "db",
 		//StructCache: make(map[_type]StructInfo),
