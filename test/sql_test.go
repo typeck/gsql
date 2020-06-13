@@ -32,11 +32,21 @@ func TestExec(t *testing.T) {
 	//}
 	//t.Logf("insert id:%v",id)
 
-	affectRows, err := db.New().Table("user").Debug().Where("name=?",u.Name).And("pwd=?",u.Pwd).
+	affectRows, err := db.New().Table("user").Debug().Where("name=?",&u.Name).And("pwd=?",&u.Pwd).
 		Cols("phone, company").Exec("update", "133","afg").RowsAffected()
 	if err != nil {
 		t.Errorf("update error:%v",err)
 		return
 	}
 	t.Logf("affect rows:%v",affectRows)
+}
+
+func TestRaw(t *testing.T) {
+	var u = &User{}
+	err := db.New().Raw("select id,name from user where id=1").And("name=?","type").Query(u.Id, u.Name).Err()
+	if err != nil {
+		t.Errorf("query error:%v", err)
+		return
+	}
+	t.Logf("query success,user:%s",util.String(u))
 }

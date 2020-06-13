@@ -1,6 +1,7 @@
 package gsql
 
 import (
+	"github.com/typeck/gsql/errors"
 	"strings"
 )
 
@@ -13,10 +14,9 @@ type SqlInfo struct {
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
-	rawSql 		string
 	isDebug 	bool
 	driverName 	string
-	db 			*DB
+	execer 		Execer
 }
 
 type sqlBuilder struct {
@@ -51,55 +51,68 @@ func (s *sqlBuilder)writeStrings(args... string) {
 }
 
 
-func (s *SqlInfo)Query(dest... interface{}) *result {
+func (s *SqlInfo)Query(dest... interface{}) Result {
 	s.values = dest
 	s.action = "SELECT"
-	return s.db.queryVal(s, dest...)
+	return s.execer.QueryVal(s, dest...)
 }
 
-func (s *SqlInfo) Exec(action string, dest... interface{}) *result {
+func (s *SqlInfo) Exec(action string, dest... interface{}) Result {
 	s.action = strings.ToUpper(action)
 	s.values = dest
 	s.values = append(s.values, s.params...)
-	return s.db.exec(s)
+
+	//exec operation don't need values to return,
+	//so we add values into params head.
+	s.params = s.values
+	return s.execer.ExecVal(s)
 }
 
-func (s *SqlInfo) Insert(dest... interface{}) *result {
+//var u = User{}; Create(&u)
+//need *struct type, but it's safe, the data of dest won't be change
+//TODO: support struct type
+func (s *SqlInfo) Create(dest interface{}) Result {
 	s.action = "INSERT"
-	s.values = dest
-	s.values = append(s.values, s.params...)
-	return s.db.exec(s)
+	return s.execer.ExecOrm(s, dest)
 }
 
-func (s *SqlInfo) Update(dest... interface{}) *result {
+//var u = User{}; Update(&u)
+//need *struct type, but it's safe, the data of dest won't be change
+//TODO: support struct type
+func (s *SqlInfo) Update(dest interface{}) Result {
 	s.action = "UPDATE"
-	s.values = dest
-	s.values = append(s.values, s.params...)
-	return s.db.exec(s)
+	return s.execer.ExecOrm(s, dest)
 }
 
-func(s *SqlInfo) Get(dest interface{}) *result {
+//var u = User{}; Get(&u)
+func(s *SqlInfo) Get(dest interface{}) Result {
 	s.action = "SELECT"
-	return s.db.get(s, dest)
+	return s.execer.Get(s, dest)
 }
 
-func(s *SqlInfo) Gets(dest interface{}) *result {
+//var us [] *User; Gets(&us)
+func(s *SqlInfo) Gets(dest interface{}) Result {
 	s.action = "SELECT"
-	return s.db.gets(s, dest)
+	return s.execer.Gets(s, dest)
 }
 
+//table name, Table("user")
 func (s *SqlInfo)Table(tableName string) *SqlInfo {
 	s.tableName = tableName
 	return s
 }
 
+//columns, Cols("name, id", "phone")
 func (s *SqlInfo)Cols(cols... string) *SqlInfo {
-	s.cols = cols
-	return s
-}
+	var tmp [] string
+	for i, _ := range cols {
+		cols := strings.Split(cols[i], ",")
+		for _, c := range cols {
 
-func (s *SqlInfo)RawSql(sql string) *SqlInfo {
-	s.rawSql = sql
+			tmp = append(tmp, strings.TrimSpace(c))
+		}
+	}
+	s.cols = tmp
 	return s
 }
 
@@ -129,6 +142,7 @@ func (s *SqlInfo)Or(condition string, args... interface{}) *SqlInfo {
 	return s
 }
 
+//raw condition; Condition("limit ?,?", 1,10)
 func(s *SqlInfo)Condition(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"")
@@ -137,8 +151,9 @@ func(s *SqlInfo)Condition(condition string, args... interface{}) *SqlInfo {
 	return s
 }
 
+//raw sql; Raw("select * from user where id=?",1).And("name=?","jack")
 func(s *SqlInfo)Raw(raw string, dest... interface{})*SqlInfo {
-	s.rawSql = raw
+	s.sql.Builder.WriteString(raw)
 	s.values = dest
 	return s
 }
@@ -150,74 +165,81 @@ func(s *SqlInfo)buildCondition() {
 	}
 }
 
-func(s *SqlInfo)done() {
-	switch s.action {
-	case "SELECT":
-		s.buildSelect()
-		if s.isDebug {
-			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
-			s.db.logger.Printf(str, s.params...)
+func(s *SqlInfo)done() error {
+	var err error
+	if s.sql.Builder.Len() == 0 {
+		switch s.action {
+		case "SELECT":
+			err = s.buildSelect()
+		case "INSERT":
+			err = s.buildInsert()
+		case "UPDATE":
+			err = s.buildUpdate()
+		case "DELETE":
+			err = s.buildDelete()
 		}
-	case "INSERT":
-		s.buildInsert()
-		if s.isDebug {
-			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
-			s.db.logger.Printf(str, s.values...)
-		}
-	case "UPDATE":
-		s.buildUpdate()
-		if s.isDebug {
-			str := strings.ReplaceAll(s.sql.String(), "?", "%v")
-			s.db.logger.Printf(str, s.values...)
-		}
-
 	}
+	if err != nil {
+		return err
+	}
+	s.buildCondition()
+
+	// print this sql.
+	if s.isDebug {
+		str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+		s.execer.Debug(str, s.params...)
+	}
+	return nil
 }
 
-func(s *SqlInfo)buildSelect() {
+func(s *SqlInfo)buildSelect() error{
 	s.sql.Builder.WriteString("SElECT ")
 	s.sql.joinWith("", ",", s.cols...)
 	s.sql.writeStrings(" FROM ", s.tableName)
-	s.buildCondition()
+
+	return nil
 }
 
-func (s *SqlInfo)buildInsert() {
-	s.sql.writeStrings("INSERT INTO ", s.tableName)
-	var count int
-	for _, v := range s.cols {
-		s.sql.joinWith(" (", ",", v)
-		count += len(strings.Split(v, ","))
+func (s *SqlInfo)buildInsert() error{
+	if len(s.cols) == 0 {
+		return errors.New("missing columns when exec insert.")
 	}
+	s.sql.writeStrings("INSERT INTO ", s.tableName)
+
+		s.sql.joinWith(" (", ",", s.cols...)
+
 	s.sql.Builder.WriteString(") VALUES (")
 
 	s.sql.Builder.WriteString("?")
-	for i := 0; i < count-1; i++ {
+	for i := 0; i < len(s.cols)-1; i++ {
 		s.sql.Builder.WriteString(", ?")
 	}
 	s.sql.Builder.WriteString(")")
-	s.buildCondition()
+
+	return nil
 }
 
-func(s *SqlInfo) buildUpdate() {
-	s.sql.writeStrings("UPDATE ", s.tableName, " SET ")
-	var tmp []string
-	for i, _ := range s.cols {
-		cols := strings.Split(s.cols[i], ",")
-		tmp = append(tmp, cols...)
+func(s *SqlInfo) buildUpdate() error{
+	if len (s.cols) == 0 {
+		return errors.New("missing columns when exec update.")
 	}
-	s.cols = tmp
-	if len(s.cols) > 0 {
-		switch len(s.cols) {
-		case 1:
-			s.sql.writeStrings(s.cols[0], "=?")
-		default:
-			s.sql.writeStrings(s.cols[0], "=?")
-			for _, v:= range s.cols[1:] {
-				s.sql.writeStrings(", ", v, "=?")
-			}
+	s.sql.writeStrings("UPDATE ", s.tableName, " SET ")
+
+	switch len(s.cols) {
+	case 1:
+		s.sql.writeStrings(s.cols[0], "=?")
+	default:
+		s.sql.writeStrings(s.cols[0], "=?")
+		for _, v:= range s.cols[1:] {
+			s.sql.writeStrings(", ", v, "=?")
 		}
 	}
-	s.buildCondition()
+	return nil
+}
+
+func (s *SqlInfo)buildDelete() error {
+	s.sql.writeStrings("DELETE FROM ",s.tableName)
+	return nil
 }
 
 func (s *SqlInfo)Debug() *SqlInfo{

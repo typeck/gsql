@@ -3,8 +3,28 @@ package gsql
 import (
 	"database/sql"
 	"github.com/typeck/gsql/errors"
+	"github.com/typeck/gsql/types"
 	"unsafe"
 )
+
+type Result interface {
+	Err()  error
+
+	LastInsertId()(int64, error)
+
+	RowsAffected()(int64, error)
+
+	Rows() (*sql.Rows, error)
+}
+
+type Scanner interface {
+	//scan into vals
+	scanVal(dest ...interface{})
+	//scan into *struct
+	scan(orm *Orm, dest interface{})
+	//scan into *[]*struct
+	scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo)
+}
 
 type result struct {
 	error   errors.Error
@@ -46,7 +66,7 @@ func (r *result)Rows() (*sql.Rows, error) {
 	return r.rows, r.error
 }
 
-func( r *result)scanValues(dest ...interface{})  {
+func( r *result)scanVal(dest ...interface{})  {
 	if r.error != nil {
 		return
 	}
@@ -83,10 +103,10 @@ func (r *result) scan(orm *Orm, dest interface{}) {
 		r.error = err
 		return
 	}
-	r.scanValues(values...)
+	r.scanVal(values...)
 }
 
-func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *structInfo, sliceInfo *sliceInfo) {
+func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo) {
 	if r.error != nil {
 		return
 	}
@@ -99,8 +119,8 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *structInfo
 
 	for r.rows.Next() {
 		//new struct
-		ptr := unsafe_New(unpackEFace(structInfo.typ.Elem()).data)
-		values, err := orm.buildValues(ptr, structInfo.fields, cols)
+		ptr := unsafe_New(unpackEFace(structInfo.Typ.Elem()).data)
+		values, err := orm.BuildValuesByPtr(ptr, structInfo.Fields, cols)
 		if err != nil {
 			r.error = err
 			return
@@ -112,12 +132,10 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *structInfo
 		}
 		// use reflect type of *struct to build **struct interface v
 		pPtr := &ptr
-		//pTyp := reflect.PtrTo(structInfo.typ)
-		//v := packEFace(_type(unpackEFace(pTyp).data), unsafe.Pointer(pPtr))
 
 		//it's safe, because the type of ptr are build and check strictly.
 		//the type of destPtr is []*struct; the type of pPtr is **struct
-		sliceInfo.typ2.UnsafeAppend(destPtr, unsafe.Pointer(pPtr))
+		sliceInfo.Typ2.UnsafeAppend(destPtr, unsafe.Pointer(pPtr))
 	}
 }
 
