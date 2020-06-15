@@ -21,8 +21,8 @@ func NewOrm() *Orm {
 }
 
 func (o *Orm) BuildValues(dest interface{}, cols[]string) ([]interface{}, error) {
-	ptr := unpackEFace(dest).data
-	typ := unpackEFace(dest).typ
+	ptr := types.UnpackEFace(dest).Data
+	typ := types.UnpackEFace(dest).Typ
 
 	structInfo, err := o.getStructInfo(typ, dest)
 	if err != nil {
@@ -92,7 +92,7 @@ func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, fields map[string]types.Struct
 	return values, nil
 }
 
-func (o *Orm)getStructInfo(typ _type, dest interface{}) (*types.StructInfo, error){
+func (o *Orm)getStructInfo(typ unsafe.Pointer, dest interface{}) (*types.StructInfo, error){
 	if value, ok := o.structCache.Load(typ); ok {
 		return value.(*types.StructInfo), nil
 	}
@@ -110,7 +110,7 @@ func (o *Orm)getStructInfo(typ _type, dest interface{}) (*types.StructInfo, erro
 
 func (o *Orm) GetStructInfoByType(rTyp reflect.Type) (*types.StructInfo, error) {
 	//get the slice elem type, as a structInfo cacheKey
-	structTyp := _type(unpackEFace(rTyp).data)
+	structTyp := types.UnpackEFace(rTyp).Data
 
 	if value, ok := o.structCache.Load(structTyp); ok {
 		return value.(*types.StructInfo), nil
@@ -128,7 +128,7 @@ func (o *Orm) GetStructInfoByType(rTyp reflect.Type) (*types.StructInfo, error) 
 }
 
 
-func(o *Orm)GetSlice(typ _type, dest interface{}) (*types.SliceInfo, error){
+func(o *Orm)GetSliceInfo(typ unsafe.Pointer, dest interface{}) (*types.SliceInfo, error){
 
 	if value, ok := o.structCache.Load(typ); ok {
 		return value.(*types.SliceInfo), nil
@@ -148,7 +148,7 @@ func(o *Orm) InvokeCols(s *SqlInfo,dest interface{}) error {
 	if s.tableName != "" && len(s.cols) > 0{
 		return nil
 	}
-	typ := unpackEFace(dest).typ
+	typ := types.UnpackEFace(dest).Typ
 
 	structInfo, err := o.getStructInfo(typ, dest)
 	if err != nil {

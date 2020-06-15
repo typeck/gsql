@@ -5,14 +5,16 @@ import (
 	"github.com/typeck/gsql/util"
 	"reflect"
 	"strings"
+	"unsafe"
 )
 
 
 type StructField struct {
-	Typ 		reflect.Type
-	Offset 		uintptr
-	TagName 	string
-	Tags 		[]string
+	Typ            reflect.Type
+	Offset         uintptr
+	TagName        string
+	Tags           []string
+	EmbeddedStruct []*StructInfo
 }
 
 
@@ -67,6 +69,10 @@ func(s *StructInfo) GetNameAndCols() (string, []string){
 		cols = append(cols, k)
 	}
 	return s.Name, cols
+}
+
+func (s *StructInfo) New() unsafe.Pointer {
+	return unsafe_New(UnpackEFace(s.Typ.Elem()).Data)
 }
 
 

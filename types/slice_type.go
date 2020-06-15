@@ -4,6 +4,7 @@ import (
 	"github.com/modern-go/reflect2"
 	"github.com/typeck/gsql/errors"
 	"reflect"
+	"unsafe"
 )
 
 type SliceInfo struct {
@@ -16,15 +17,15 @@ func(s *SliceInfo) Unwrap(t reflect.Type)error {
 	if t.Kind() != reflect.Ptr {
 		return errors.New("slice must be *[]*struct.")
 	}
-	t1 := indirection(t)
+	t1 := Indirection(t)
 	if t1.Kind() != reflect.Slice {
 		return errors.New("slice must be *[]*struct.")
 	}
-	if t1 = indirection(t1); t1.Kind() != reflect.Ptr {
+	if t1 = Indirection(t1); t1.Kind() != reflect.Ptr {
 		return errors.New("slice must be *[]*struct.")
 	}
 	s.ElemTyp = t1
-	if t1 = indirection(t1); t1.Kind() != reflect.Struct {
+	if t1 = Indirection(t1); t1.Kind() != reflect.Struct {
 		return  errors.New("slice must be *[]*struct.")
 	}
 
@@ -34,6 +35,10 @@ func(s *SliceInfo) Unwrap(t reflect.Type)error {
 	type2 := reflect2.Type2(t.Elem())
 	s.Typ2 = type2.(reflect2.SliceType)
 	return nil
+}
+
+func (s *SliceInfo) Append(destPtr unsafe.Pointer, pPtr unsafe.Pointer) {
+	s.Typ2.UnsafeAppend(destPtr, unsafe.Pointer(pPtr))
 }
 
 func NewSliceInfo() *SliceInfo {

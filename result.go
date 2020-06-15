@@ -119,7 +119,7 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.Stru
 
 	for r.rows.Next() {
 		//new struct
-		ptr := unsafe_New(unpackEFace(structInfo.Typ.Elem()).data)
+		ptr := structInfo.New()
 		values, err := orm.BuildValuesByPtr(ptr, structInfo.Fields, cols)
 		if err != nil {
 			r.error = err
@@ -135,7 +135,7 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.Stru
 
 		//it's safe, because the type of ptr are build and check strictly.
 		//the type of destPtr is []*struct; the type of pPtr is **struct
-		sliceInfo.Typ2.UnsafeAppend(destPtr, unsafe.Pointer(pPtr))
+		sliceInfo.Append(destPtr, unsafe.Pointer(pPtr))
 	}
 }
 

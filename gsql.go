@@ -114,9 +114,9 @@ func scan(scanner Scanner,orm *Orm, dest interface{}) {
 func (db *DB) Gets(s *SqlInfo, dest interface{}) Result {
 	orm := db.orm
 	res := &result{}
-	cacheKey := unpackEFace(dest).typ
-	destPtr := unpackEFace(dest).data
-	sliceInfo,err := orm.GetSlice(cacheKey, dest)
+	cacheKey := types.UnpackEFace(dest).Typ
+	destPtr := types.UnpackEFace(dest).Data
+	sliceInfo,err := orm.GetSliceInfo(cacheKey, dest)
 	if err != nil {
 		res.error = err
 		return res
@@ -161,7 +161,6 @@ func (db *DB) ExecOrm(s *SqlInfo, dest interface{})Result {
 		res.error = err
 		return res
 	}
-
 
 	values, err := orm.BuildValues(dest, s.cols)
 	if err != nil {
