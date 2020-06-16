@@ -26,16 +26,30 @@ type StructInfo struct {
 }
 
 
-// unwrap * struct type into map.
-func(s *StructInfo) Unwrap(t reflect.Type, tagName string)  error {
-	s.Typ = t
+func (s *StructInfo) typeCheck(t reflect.Type) error {
 	if t.Kind() != reflect.Ptr {
 		return  errors.New("must pass a pointer.")
 	}
-	t = indirection(t)
+	t = Indirection(t)
 	if t.Kind() != reflect.Struct {
 		return  errors.New("must pass a struct pointer.")
 	}
+	return nil
+}
+
+func(s *StructInfo) SafeUnwrap(t reflect.Type, tagName string)  error {
+	err := s.typeCheck(t)
+	if err != nil {
+		return err
+	}
+	s.Unwrap(t, tagName)
+	return nil
+}
+
+// unwrap struct type into map.
+func(s *StructInfo) Unwrap(t reflect.Type, tagName string)  {
+	s.Typ = t
+	t = GetElem(t)
 	s.Name = util.ToSnakeCase(t.Name())
 
 	size := t.NumField()
@@ -59,7 +73,6 @@ func(s *StructInfo) Unwrap(t reflect.Type, tagName string)  error {
 		s.Fields[tagSlice[0]] = field
 	}
 
-	return nil
 }
 
 func(s *StructInfo) GetNameAndCols() (string, []string){

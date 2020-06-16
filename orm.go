@@ -99,7 +99,7 @@ func (o *Orm)getStructInfo(typ unsafe.Pointer, dest interface{}) (*types.StructI
 	t := reflect.TypeOf(dest)
 
 	s := types.NewStructInfo()
-	err := s.Unwrap(t, o.Tag)
+	err := s.SafeUnwrap(t, o.Tag)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (o *Orm) GetStructInfoByType(rTyp reflect.Type) (*types.StructInfo, error) 
 	}
 
 	s := types.NewStructInfo()
-	err := s.Unwrap(rTyp, o.Tag)
+	err := s.SafeUnwrap(rTyp, o.Tag)
 	if err != nil {
 		return nil, err
 	}

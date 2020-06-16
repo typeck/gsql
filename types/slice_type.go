@@ -13,7 +13,7 @@ type SliceInfo struct {
 }
 
 // unwrap a *slice type, by using reflect2.
-func(s *SliceInfo) Unwrap(t reflect.Type)error {
+func(s *SliceInfo) Unwrap(t reflect.Type) error {
 	if t.Kind() != reflect.Ptr {
 		return errors.New("slice must be *[]*struct.")
 	}

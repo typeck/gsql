@@ -35,5 +35,14 @@ func Indirection(p reflect.Type) reflect.Type {
 	return p.Elem()
 }
 
+func GetElem(t reflect.Type) reflect.Type {
+	for {
+		if t.Kind() != reflect.Ptr {
+			return t
+		}
+		t = t.Elem()
+	}
+}
+
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(rtype unsafe.Pointer) unsafe.Pointer
