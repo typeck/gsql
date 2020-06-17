@@ -2,11 +2,12 @@ package test
 
 import (
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 	"github.com/typeck/gsql"
 )
 
 var db *gsql.DB
-
+var gormDb *gorm.DB
 //type User struct {
 //	Id         int    `json:"id"`
 //	Name       string `json:"name"`
@@ -22,22 +23,33 @@ var db *gsql.DB
 //}
 
 type User struct {
-	Id         int    `json:"id" db:"id"`
-	Name       string `json:"name" db:"name"`
-	Account    string `json:"account" db:"account" example:"type@test.com"`
-	Company    string `json:"company" db:"company"`
-	Pwd        string `json:"pwd" db:"pwd" example:"e10adc3949ba59abbe56e057f20f883e"`
-	Phone      string `json:"phone" db:"phone"`
-	Email      string `json:"email" db:"email"`
-	Roles      int    `json:"role" db:"roles"`
-	Status     int    `json:"status" db:"status"`
-	CreateTime string `json:"create_time" db:"create_time"`
-	UpdateTime string `json:"update_time" db:"update_time"`
+	Id         int    `json:"id" db:"id" gorm:"primary_key" json:"id"`
+	Name       string `json:"name" db:"name" gorm:"name"`
+	Account    string `json:"account" db:"account" gorm:"account"`
+	Company    string `json:"company" db:"company" gorm:"company"`
+	Pwd        string `json:"pwd" db:"pwd" gorm:"pwd"`
+	Phone      string `json:"phone" db:"phone" gorm:"phone"`
+	Email      string `json:"email" db:"email" gorm:"email"`
+	Roles      int    `json:"role" db:"roles" gorm:"roles"`
+	Status     int    `json:"status" db:"status" gorm:"status"`
+	//CreateTime string `json:"create_time" db:"create_time" gorm:"create_time"`
+	//UpdateTime string `json:"update_time" db:"update_time" gorm:"update_time"`
+	Time      Time  `json:"time"`
+}
+
+type Time struct {
+	CreateTime string `json:"create_time" db:"create_time" gorm:"create_time"`
+	UpdateTime string `json:"update_time" db:"update_time" gorm:"update_time"`
 }
 
 func init() {
 	var err error
 	db, err = gsql.NewDb("mysql","type:tang@(127.0.0.1)/test")
+	if err != nil {
+		panic(err)
+	}
+
+	gormDb, err = gorm.Open("mysql", "type:tang@(127.0.0.1)/test")
 	if err != nil {
 		panic(err)
 	}

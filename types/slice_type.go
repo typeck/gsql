@@ -12,8 +12,7 @@ type SliceInfo struct {
 	ElemTyp 	reflect.Type// *struct
 }
 
-// unwrap a *slice type, by using reflect2.
-func(s *SliceInfo) Unwrap(t reflect.Type) error {
+func (s *SliceInfo) TypeCheck(t reflect.Type) error {
 	if t.Kind() != reflect.Ptr {
 		return errors.New("slice must be *[]*struct.")
 	}
@@ -28,13 +27,33 @@ func(s *SliceInfo) Unwrap(t reflect.Type) error {
 	if t1 = Indirection(t1); t1.Kind() != reflect.Struct {
 		return  errors.New("slice must be *[]*struct.")
 	}
-
-	//  reflect2 has cache of slice type.
-	//we got a []*struct slice type, not a *[]*struct type.
-	//so type2.(reflect2.SliceType)  is safe.
-	type2 := reflect2.Type2(t.Elem())
-	s.Typ2 = type2.(reflect2.SliceType)
 	return nil
+}
+
+func(s *SliceInfo) SafeUnwrap(t reflect.Type) error {
+	if err := s.TypeCheck(t); err != nil {
+		return err
+	}
+
+	s.Unwrap(t.Elem())
+	return nil
+}
+
+// t must be []struct type.
+func(s *SliceInfo) Unwrap(t reflect.Type)  {
+	type2 := reflect2.Type2(t)
+	s.Typ2 = type2.(reflect2.SliceType)
+	s.ElemTyp = s.GetSliceElemType(t)
+
+}
+
+func (s *SliceInfo) GetSliceElemType(t reflect.Type) reflect.Type {
+	for {
+		if t.Kind() != reflect.Ptr {
+			return t.Elem()
+		}
+		t = t.Elem()
+	}
 }
 
 func (s *SliceInfo) Append(destPtr unsafe.Pointer, pPtr unsafe.Pointer) {

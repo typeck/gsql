@@ -120,7 +120,7 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.Stru
 	for r.rows.Next() {
 		//new struct
 		ptr := structInfo.New()
-		values, err := orm.BuildValuesByPtr(ptr, structInfo.Fields, cols)
+		values, err := orm.BuildValuesByPtr(ptr, structInfo, cols)
 		if err != nil {
 			r.error = err
 			return

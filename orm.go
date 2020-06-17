@@ -1,6 +1,7 @@
 package gsql
 
 import (
+	"fmt"
 	"github.com/typeck/gsql/errors"
 	"github.com/typeck/gsql/types"
 	"reflect"
@@ -31,12 +32,17 @@ func (o *Orm) BuildValues(dest interface{}, cols[]string) ([]interface{}, error)
 	if structInfo == nil {
 		return nil, errors.New("nil struct map cache.")
 	}
-	fields := structInfo.Fields
-	return o.BuildValuesByPtr(ptr, fields, cols)
+
+	return o.BuildValuesByPtr(ptr, structInfo, cols)
 }
 
 //using struct ptr and struct field offset to build values memory addr.
-func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, fields map[string]types.StructField, cols []string) ([]interface{}, error){
+func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, structInfo *types.StructInfo, cols []string) ([]interface{}, error){
+	if ptr == nil {
+		return nil, errors.New("nil ptr.")
+	}
+	fields := structInfo.Fields
+	fieldsWithStruct := structInfo.FieldsWithStruct
 	var values [] interface{}
 	for _, col := range cols {
 		if v, ok := fields[col]; ok {
@@ -87,6 +93,25 @@ func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, fields map[string]types.Struct
 				filedPtr := (*float32)(unsafe.Pointer(uintptr(ptr) + v.Offset))
 				values = append(values, filedPtr)
 			}
+		}else {
+			for _, strus := range fieldsWithStruct {
+				if structInfo := strus.EmbeddedStruct; structInfo == nil {
+					continue
+				}
+				fmt.Println(strus.EmbeddedStruct.Typ)
+				var fPtr unsafe.Pointer
+				switch strus.Typ.Kind() {
+				case reflect.Ptr:
+					fPtr = unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(ptr) + strus.Offset)))
+				case reflect.Struct:
+					fPtr = unsafe.Pointer(uintptr(ptr) + strus.Offset)
+				}
+				vs, err := o.BuildValuesByPtr(fPtr, strus.EmbeddedStruct, []string{col})
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, vs...)
+			}
 		}
 	}
 	return values, nil
@@ -135,7 +160,7 @@ func(o *Orm)GetSliceInfo(typ unsafe.Pointer, dest interface{}) (*types.SliceInfo
 	}
 	t := reflect.TypeOf(dest)
 	s := types.NewSliceInfo()
-	err := s.Unwrap(t)
+	err := s.SafeUnwrap(t)
 	if err != nil {
 		return nil, err
 	}
