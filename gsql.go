@@ -12,7 +12,7 @@ import (
 // Wrapper of sql.DB
 type DB struct {
 	driverName string
-	*sql.DB
+	SqlDb
 	logger Logger
 	orm    *Orm
 }
@@ -24,6 +24,10 @@ type Db interface {
 	SetTag(tagName string)
 	//customize debug logger.
 	SetLog(log Logger)
+	//begin transaction
+	Begin() (*DB, error)
+	Rollback() error
+	Commit() error
 }
 
 type Execer interface {
@@ -43,7 +47,7 @@ type Execer interface {
 
 var defaultLog = log.New(os.Stdout, "[gsql]", log.Lshortfile|log.Ldate|log.Ltime)
 
-func NewDb(driverName,dataSource string) (*DB,error) {
+func NewDb(driverName,dataSource string) (Db, error) {
 	db, err := sql.Open(driverName,dataSource)
 	if err != nil {
 		return nil , err
@@ -54,10 +58,51 @@ func NewDb(driverName,dataSource string) (*DB,error) {
 	}
 	return &DB{
 		driverName: driverName,
-		DB: 		db,
+		SqlDb: 		db,
 		orm:		NewOrm(),
 		logger: defaultLog,
 	},nil
+}
+
+func (db *DB) Begin() (*DB, error) {
+	beginner, ok := (db.SqlDb).(TxBeginner)
+	if !ok{
+		return nil, errors.New("begin tx failed.")
+	}
+	tx, err := beginner.Begin()
+	if err != nil {
+		return nil, err
+	}
+	dbClone := db.clone()
+	dbClone.SqlDb = tx
+	return dbClone, nil
+}
+
+func(db *DB) Rollback() error {
+	committer, ok := (db.SqlDb).(TxCommitter)
+	if !ok {
+		return errors.New("rollback error, wrong caller.")
+	}
+	return committer.Rollback()
+}
+
+func(db *DB) Commit() error {
+	committer, ok := (db.SqlDb).(TxCommitter)
+	if !ok {
+		return errors.New("rollback error, wrong caller.")
+	}
+	return committer.Commit()
+}
+
+
+func (db *DB) clone() *DB {
+	d := &DB{
+		driverName: db.driverName,
+		SqlDb:         db.SqlDb,
+		logger:     db.logger,
+		orm:        db.orm,
+	}
+	return d
 }
 
 func (db *DB)New() *SqlInfo{

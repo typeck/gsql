@@ -49,35 +49,6 @@ func(s *StructInfo) SafeUnwrap(t reflect.Type, tagName string)  error {
 	return nil
 }
 
-// unwrap struct type into map.
-//func(s *StructInfo) Unwrap(t reflect.Type, tagName string)  {
-//	s.Typ = t
-//	t = GetBaseElem(t)
-//	s.Name = util.ToSnakeCase(t.Name())
-//
-//	size := t.NumField()
-//	var field StructField
-//	for i := 0; i < size; i++ {
-//		tags := t.Field(i).Tag.Get(tagName)
-//		//split "" will also return a slice contains "", so filter nil tags is necessary.
-//		if tags == "" {
-//			continue
-//		}
-//		tagSlice := strings.Split(tags, ",")
-//		if len(tagSlice) == 0 {
-//			continue
-//		}
-//
-//		field.Typ = t.Field(i).Type
-//		field.Offset = t.Field(i).Offset
-//		field.TagName = tagSlice[0]
-//		field.Tags = tagSlice
-//
-//		s.Fields[tagSlice[0]] = field
-//	}
-//
-//}
-
 func(s *StructInfo) Unwrap(t reflect.Type, tagName string)  {
 	s.Typ = t
 	t = GetBaseElem(t)
