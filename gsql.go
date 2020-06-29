@@ -10,7 +10,7 @@ import (
 )
 
 // Wrapper of sql.DB
-type DB struct {
+type gsql struct {
 	driverName string
 	SqlDb
 	logger Logger
@@ -25,7 +25,7 @@ type Db interface {
 	//customize debug logger.
 	SetLog(log Logger)
 	//begin transaction
-	Begin() (*DB, error)
+	Begin() (*gsql, error)
 	Rollback() error
 	Commit() error
 }
@@ -47,7 +47,7 @@ type Execer interface {
 
 var defaultLog = log.New(os.Stdout, "[gsql]", log.Lshortfile|log.Ldate|log.Ltime)
 
-func NewDb(driverName,dataSource string) (Db, error) {
+func OpenDb(driverName,dataSource string) (Db, error) {
 	db, err := sql.Open(driverName,dataSource)
 	if err != nil {
 		return nil , err
@@ -56,7 +56,7 @@ func NewDb(driverName,dataSource string) (Db, error) {
 	if err != nil {
 		return nil,err
 	}
-	return &DB{
+	return &gsql{
 		driverName: driverName,
 		SqlDb: 		db,
 		orm:		NewOrm(),
@@ -64,7 +64,7 @@ func NewDb(driverName,dataSource string) (Db, error) {
 	},nil
 }
 
-func (db *DB) Begin() (*DB, error) {
+func (db *gsql) Begin() (*gsql, error) {
 	beginner, ok := (db.SqlDb).(TxBeginner)
 	if !ok{
 		return nil, errors.New("begin tx failed.")
@@ -78,7 +78,7 @@ func (db *DB) Begin() (*DB, error) {
 	return dbClone, nil
 }
 
-func(db *DB) Rollback() error {
+func(db *gsql) Rollback() error {
 	committer, ok := (db.SqlDb).(TxCommitter)
 	if !ok {
 		return errors.New("rollback error, wrong caller.")
@@ -86,7 +86,7 @@ func(db *DB) Rollback() error {
 	return committer.Rollback()
 }
 
-func(db *DB) Commit() error {
+func(db *gsql) Commit() error {
 	committer, ok := (db.SqlDb).(TxCommitter)
 	if !ok {
 		return errors.New("rollback error, wrong caller.")
@@ -95,8 +95,8 @@ func(db *DB) Commit() error {
 }
 
 
-func (db *DB) clone() *DB {
-	d := &DB{
+func (db *gsql) clone() *gsql {
+	d := &gsql{
 		driverName: db.driverName,
 		SqlDb:         db.SqlDb,
 		logger:     db.logger,
@@ -105,21 +105,21 @@ func (db *DB) clone() *DB {
 	return d
 }
 
-func (db *DB)New() *SqlInfo{
+func (db *gsql)New() *SqlInfo{
 	return &SqlInfo{driverName: db.driverName, execer: db}
 }
 
 
-func (db *DB)SetTag(tagName string) {
+func (db *gsql)SetTag(tagName string) {
 	db.orm.Tag = tagName
 }
 
-func(db *DB)SetLog(log Logger) {
+func(db *gsql)SetLog(log Logger) {
 	db.logger = log
 }
 
 
-func (db *DB) QueryVal(s *SqlInfo, dest... interface{}) Result {
+func (db *gsql) QueryVal(s *SqlInfo, dest... interface{}) Result {
 	res := db.query(s)
 	scanVal(res, dest...)
 	return res
@@ -129,11 +129,11 @@ func scanVal(scanner Scanner, dest... interface{}) {
 	scanner.scanVal(dest...)
 }
 
-func(db *DB)ExecVal(s *SqlInfo, dest... interface{}) Result {
+func(db *gsql)ExecVal(s *SqlInfo, dest... interface{}) Result {
 	return db.exec(s)
 }
 
-func(db *DB) Get(s *SqlInfo, dest interface{}) Result {
+func(db *gsql) Get(s *SqlInfo, dest interface{}) Result {
 	orm := db.orm
 	 res := &result{}
 	err := orm.InvokeCols(s, dest)
@@ -156,7 +156,7 @@ func scan(scanner Scanner,orm *Orm, dest interface{}) {
 }
 
 
-func (db *DB) Gets(s *SqlInfo, dest interface{}) Result {
+func (db *gsql) Gets(s *SqlInfo, dest interface{}) Result {
 	orm := db.orm
 	res := &result{}
 	cacheKey := types.UnpackEFace(dest).Typ
@@ -198,7 +198,7 @@ func scanAll(scanner Scanner, orm *Orm, destPtr unsafe.Pointer,structInfo *types
 	scanner.scanAll(orm, destPtr, structInfo, sliceInfo)
 }
 
-func (db *DB) ExecOrm(s *SqlInfo, dest interface{})Result {
+func (db *gsql) ExecOrm(s *SqlInfo, dest interface{})Result {
 	orm := db.orm
 	res := &result{}
 	err := orm.InvokeCols(s, dest)
@@ -219,11 +219,11 @@ func (db *DB) ExecOrm(s *SqlInfo, dest interface{})Result {
 	return db.exec(s)
 }
 
-func (db *DB) Debug(format string, v ...interface{}) {
+func (db *gsql) Debug(format string, v ...interface{}) {
 	db.logger.Printf(format, v...)
 }
 
-func (db *DB) query(s *SqlInfo) *result {
+func (db *gsql) query(s *SqlInfo) *result {
 	err := s.done()
 	if err != nil {
 		return &result{
@@ -237,7 +237,7 @@ func (db *DB) query(s *SqlInfo) *result {
 	}
 }
 
-func(db *DB) exec(s *SqlInfo) *result {
+func(db *gsql) exec(s *SqlInfo) *result {
 	err := s.done()
 	if err != nil {
 		return &result{

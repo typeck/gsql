@@ -2,6 +2,7 @@ package gsql
 
 import (
 	"github.com/typeck/gsql/errors"
+	"reflect"
 	"strings"
 )
 
@@ -78,7 +79,6 @@ func (s *SqlInfo) Create(dest interface{}) Result {
 
 //var u = User{}; Update(&u)
 //need *struct type, but it's safe, the data of dest won't be change
-//TODO: support struct type
 func (s *SqlInfo) Update(dest interface{}) Result {
 	s.action = "UPDATE"
 	return s.execer.ExecOrm(s, dest)
@@ -187,6 +187,15 @@ func(s *SqlInfo)done() error {
 	// print this sql.
 	if s.isDebug {
 		str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+		var args []interface{}
+		for _, p := range s.params {
+			t := reflect.TypeOf(p)
+			if t.Kind() == reflect.Ptr {
+				args = append(args, reflect.ValueOf(p).Elem().Interface())
+				continue
+			}
+			args = append(args, p)
+		}
 		s.execer.Debug(str, s.params...)
 	}
 	return nil

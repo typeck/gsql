@@ -1,7 +1,6 @@
 package gsql
 
 import (
-	"fmt"
 	"github.com/typeck/gsql/errors"
 	"github.com/typeck/gsql/types"
 	"reflect"
@@ -98,7 +97,6 @@ func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, structInfo *types.StructInfo, 
 				if structInfo := strus.EmbeddedStruct; structInfo == nil {
 					continue
 				}
-				fmt.Println(strus.EmbeddedStruct.Typ)
 				var fPtr unsafe.Pointer
 				switch strus.Typ.Kind() {
 				case reflect.Ptr:

@@ -12,8 +12,10 @@ var u = User{
 	Email:      "",
 	Roles:      0,
 	Status:     0,
-	CreateTime: "2020-06-12 21:49:48",
-	UpdateTime: "2020-06-12 21:49:48",
+	Time: Time{
+		CreateTime: "2020-06-12 21:49:48",
+		UpdateTime: "2020-06-12 21:49:48",
+	},
 }
 
 func TestUpdate(t *testing.T) {

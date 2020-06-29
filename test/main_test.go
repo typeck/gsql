@@ -6,7 +6,7 @@ import (
 	"github.com/typeck/gsql"
 )
 
-var db *gsql.DB
+var db gsql.Db
 var gormDb *gorm.DB
 //type User struct {
 //	Id         int    `json:"id"`
@@ -44,7 +44,7 @@ type Time struct {
 
 func init() {
 	var err error
-	db, err = gsql.NewDb("mysql","type:tang@(127.0.0.1)/test")
+	db, err = gsql.OpenDb("mysql","type:tang@(127.0.0.1)/test")
 	if err != nil {
 		panic(err)
 	}
