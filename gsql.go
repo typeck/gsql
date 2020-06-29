@@ -28,6 +28,7 @@ type Db interface {
 	Begin() (*gsql, error)
 	Rollback() error
 	Commit() error
+	SqlDb
 }
 
 type Execer interface {

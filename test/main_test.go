@@ -2,12 +2,11 @@ package test
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
 	"github.com/typeck/gsql"
 )
 
 var db gsql.Db
-var gormDb *gorm.DB
+//var gormDb *gorm.DB
 //type User struct {
 //	Id         int    `json:"id"`
 //	Name       string `json:"name"`
@@ -49,9 +48,9 @@ func init() {
 		panic(err)
 	}
 
-	gormDb, err = gorm.Open("mysql", "type:tang@(127.0.0.1)/test")
-	if err != nil {
-		panic(err)
-	}
+	//gormDb, err = gorm.Open("mysql", "type:tang@(127.0.0.1)/test")
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
