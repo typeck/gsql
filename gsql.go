@@ -2,6 +2,7 @@ package gsql
 
 import (
 	"database/sql"
+	"github.com/typeck/gsql/driver"
 	"github.com/typeck/gsql/errors"
 	"github.com/typeck/gsql/types"
 	"log"
@@ -11,19 +12,16 @@ import (
 
 // Wrapper of sql.DB
 type gsql struct {
-	driverName string
 	SqlDb
-	logger Logger
-	orm    *Orm
+	driverName 	string
+	driver.Dialector
+	logger 		Logger
+	orm    		*Orm
 }
 
 type Db interface {
 	//new for every execution
 	New() *SqlInfo
-	//default tag is "db", to customize struct tag.
-	SetTag(tagName string)
-	//customize debug logger.
-	SetLog(log Logger)
 	//begin transaction
 	Begin() (*gsql, error)
 	Rollback() error
@@ -44,11 +42,12 @@ type Execer interface {
 	ExecOrm(s *SqlInfo, dest interface{})Result
 	//use logger to printf debug log
 	Debug(format string, v ...interface{})
+	driver.Dialector
 }
 
 var defaultLog = log.New(os.Stdout, "[gsql]", log.Lshortfile|log.Ldate|log.Ltime)
 
-func OpenDb(driverName,dataSource string) (Db, error) {
+func OpenDb(driverName,dataSource string, opts... Option) (Db, error) {
 	db, err := sql.Open(driverName,dataSource)
 	if err != nil {
 		return nil , err
@@ -57,13 +56,25 @@ func OpenDb(driverName,dataSource string) (Db, error) {
 	if err != nil {
 		return nil,err
 	}
-	return &gsql{
+	gsqlDb := &gsql{
 		driverName: driverName,
 		SqlDb: 		db,
 		orm:		NewOrm(),
-		logger: defaultLog,
-	},nil
+		Dialector:		driver.MDialector[driverName],
+		logger: 	defaultLog,
+	}
+	gsqlDb.WithOptions(opts...)
+	return gsqlDb, nil
 }
+
+func (db *gsql) WithOptions(opts ...Option) Db {
+	c := db.clone()
+	for _, opt := range opts {
+		opt.apply(c)
+	}
+	return c
+}
+
 
 func (db *gsql) Begin() (*gsql, error) {
 	beginner, ok := (db.SqlDb).(TxBeginner)
@@ -107,16 +118,11 @@ func (db *gsql) clone() *gsql {
 }
 
 func (db *gsql)New() *SqlInfo{
-	return &SqlInfo{driverName: db.driverName, execer: db}
-}
-
-
-func (db *gsql)SetTag(tagName string) {
-	db.orm.Tag = tagName
-}
-
-func(db *gsql)SetLog(log Logger) {
-	db.logger = log
+	return &SqlInfo{
+		driverName: db.driverName,
+		execer: db,
+		sql:	&sqlBuilder{},
+	}
 }
 
 

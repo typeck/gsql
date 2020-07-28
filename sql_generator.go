@@ -8,7 +8,7 @@ import (
 
 type SqlInfo struct {
 	tableName	string
-	sql  		sqlBuilder
+	sql  		*sqlBuilder
 	action 		string
 	cols 		[]string
 	params 		[]interface{}
@@ -24,8 +24,7 @@ type sqlBuilder struct {
 	strings.Builder
 }
 
-func(s *sqlBuilder)joinWith(with string, sep string, a... string) {
-	s.Builder.WriteString(with)
+func(s *sqlBuilder)join(sep string, a... string) {
 	switch len(a) {
 	case 0:
 		return
@@ -186,9 +185,10 @@ func(s *SqlInfo)done() error {
 
 	// print this sql.
 	if s.isDebug {
-		str := strings.ReplaceAll(s.sql.String(), "?", "%v")
+		str := strings.ReplaceAll(s.sql.String(), s.execer.GetPlaceholder(0), "%v")
 		var args []interface{}
-		for _, p := range s.params {
+		for i, p := range s.params {
+			str = strings.ReplaceAll(str, s.execer.GetPlaceholder(i), "%v")
 			t := reflect.TypeOf(p)
 			if t.Kind() == reflect.Ptr {
 				args = append(args, reflect.ValueOf(p).Elem().Interface())
@@ -203,7 +203,7 @@ func(s *SqlInfo)done() error {
 
 func(s *SqlInfo)buildSelect() error{
 	s.sql.Builder.WriteString("SElECT ")
-	s.sql.joinWith("", ",", s.cols...)
+	s.sql.join(",", s.cols...)
 	s.sql.writeStrings(" FROM ", s.tableName)
 
 	return nil
@@ -213,15 +213,14 @@ func (s *SqlInfo)buildInsert() error{
 	if len(s.cols) == 0 {
 		return errors.New("missing columns when exec insert.")
 	}
-	s.sql.writeStrings("INSERT INTO ", s.tableName)
-
-		s.sql.joinWith(" (", ",", s.cols...)
-
+	s.sql.writeStrings("INSERT INTO ", s.tableName, " (")
+	s.sql.join(",", s.cols...)
 	s.sql.Builder.WriteString(") VALUES (")
 
-	s.sql.Builder.WriteString("?")
-	for i := 0; i < len(s.cols)-1; i++ {
-		s.sql.Builder.WriteString(", ?")
+	s.execer.WritePlaceholder(s.sql, 0)
+	for i := 1; i < len(s.cols); i++ {
+		s.sql.Builder.WriteString(", ")
+		s.execer.WritePlaceholder(s.sql, i)
 	}
 	s.sql.Builder.WriteString(")")
 
@@ -234,14 +233,20 @@ func(s *SqlInfo) buildUpdate() error{
 	}
 	s.sql.writeStrings("UPDATE ", s.tableName, " SET ")
 
-	switch len(s.cols) {
-	case 1:
-		s.sql.writeStrings(s.cols[0], "=?")
-	default:
-		s.sql.writeStrings(s.cols[0], "=?")
-		for _, v:= range s.cols[1:] {
-			s.sql.writeStrings(", ", v, "=?")
-		}
+	//switch len(s.cols) {
+	//case 1:
+	//	s.sql.writeStrings(s.cols[0], "=?")
+	//default:
+	//	s.sql.writeStrings(s.cols[0], "=?")
+	//	for _, v:= range s.cols[1:] {
+	//		s.sql.writeStrings(", ", v, "=?")
+	//	}
+	//}
+	s.sql.writeStrings(s.cols[0], "=")
+	s.execer.WritePlaceholder(s.sql, 0)
+	for i := 1; i < len(s.cols); i++ {
+		s.sql.writeStrings(", ", s.cols[i], "=")
+		s.execer.WritePlaceholder(s.sql, i)
 	}
 	return nil
 }
