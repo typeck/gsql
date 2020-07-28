@@ -125,6 +125,25 @@ func (s *SqlInfo)Where(condition string, args... interface{}) *SqlInfo {
 	return s
 }
 
+func (s *SqlInfo) Wherem(m map[string]interface{}) *SqlInfo {
+	var i = 0
+	var str = &strings.Builder{}
+	for k, v := range m {
+		if i == 0 {
+			s.method = append(s.method, "WHERE")
+		}else {
+			s.method = append(s.method, "AND")
+		}
+		str.WriteString(k)
+		str.WriteString("=")
+		s.execer.WritePlaceholder(str, i)
+		s.condition = append(s.condition, str.String())
+		s.params = append(s.params, v)
+		str.Reset()
+		i ++
+	}
+}
+
 func (s *SqlInfo)And(condition string, args... interface{}) *SqlInfo {
 
 	s.method = append(s.method,"AND")
