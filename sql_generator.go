@@ -142,6 +142,7 @@ func (s *SqlInfo) Wherem(m map[string]interface{}) *SqlInfo {
 		str.Reset()
 		i ++
 	}
+	return s
 }
 
 func (s *SqlInfo)And(condition string, args... interface{}) *SqlInfo {
