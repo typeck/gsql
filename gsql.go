@@ -45,6 +45,10 @@ type Execer interface {
 	driver.Dialector
 }
 
+var (
+	ErrNoRows = sql.ErrNoRows
+)
+
 var defaultLog = log.New(os.Stdout, "[gsql]", log.Lshortfile|log.Ldate|log.Ltime)
 
 func OpenDb(driverName,dataSource string, opts... Option) (Db, error) {
