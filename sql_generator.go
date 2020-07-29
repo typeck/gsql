@@ -15,41 +15,24 @@ type SqlInfo struct {
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
+	omit 		map[string]int
 	isDebug 	bool
 	driverName 	string
 	execer 		Execer
 }
 
-type sqlBuilder struct {
-	strings.Builder
+func (s *SqlInfo) Reset() {
+	s.tableName  = ""
+	s.sql = &sqlBuilder{}
+	s.action = ""
+	s.cols = nil
+	s.params = nil
+	s.method = nil
+	s.condition = nil
+	s.values = nil
+	s.isDebug = false
+	s.omit = make(map[string]int)
 }
-
-func(s *sqlBuilder)join(sep string, a... string) {
-	switch len(a) {
-	case 0:
-		return
-	case 1:
-		s.Builder.WriteString(a[0])
-		return
-	}
-	n := len(sep) * (len(a) - 1)
-	for i := 0; i < len(a); i++ {
-		n += len(a[i])
-	}
-	s.Builder.Grow(n)
-	s.Builder.WriteString(a[0])
-	for _, ss := range a[1:] {
-		s.Builder.WriteString(sep)
-		s.Builder.WriteString(ss)
-	}
-}
-
-func (s *sqlBuilder)writeStrings(args... string) {
-	for _,v := range args {
-		s.Builder.WriteString(v)
-	}
-}
-
 
 func (s *SqlInfo)Query(dest... interface{}) Result {
 	s.values = dest

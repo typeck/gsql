@@ -7,6 +7,7 @@ import (
 	"github.com/typeck/gsql/types"
 	"log"
 	"os"
+	"sync"
 	"unsafe"
 )
 
@@ -17,6 +18,7 @@ type gsql struct {
 	driver.Dialector
 	logger 		Logger
 	orm    		*Orm
+	pool 		sync.Pool
 }
 
 type Db interface {
@@ -66,6 +68,9 @@ func OpenDb(driverName,dataSource string, opts... Option) (Db, error) {
 		orm:		NewOrm(),
 		Dialector:		driver.MDialector[driverName],
 		logger: 	defaultLog,
+	}
+	gsqlDb.pool.New = func() interface{} {
+		return gsqlDb.NewSqlInfo()
 	}
 	gsqlDb.WithOptions(opts...)
 	return gsqlDb, nil
@@ -121,11 +126,19 @@ func (db *gsql) clone() *gsql {
 	return d
 }
 
-func (db *gsql)New() *SqlInfo{
+func (db *gsql)New() *SqlInfo {
+	s := db.pool.Get().(*SqlInfo)
+	s.Reset()
+	return s
+}
+
+func (db *gsql)NewSqlInfo() *SqlInfo{
+
 	return &SqlInfo{
 		driverName: db.driverName,
 		execer: db,
 		sql:	&sqlBuilder{},
+		omit: make(map[string]int),
 	}
 }
 
@@ -242,6 +255,8 @@ func (db *gsql) query(s *SqlInfo) *result {
 		}
 	}
 	rows, err := db.Query(s.sql.String(), s.params...)
+	//put the sql info into sync pool
+	db.pool.Put(s)
 	return &result{
 		rows: rows,
 		error: err,
@@ -256,6 +271,7 @@ func(db *gsql) exec(s *SqlInfo) *result {
 		}
 	}
 	res, err := db.Exec(s.sql.String(), s.params...)
+	db.pool.Put(s)
 	return &result{
 		result: res,
 		error: err,
