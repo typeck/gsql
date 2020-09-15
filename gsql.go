@@ -14,11 +14,11 @@ import (
 // Wrapper of sql.DB
 type gsql struct {
 	SqlDb
-	driverName 	string
-	driver.Dialector
-	logger 		Logger
-	orm    		*Orm
-	pool 		sync.Pool
+	driverName string
+	driver.Driver
+	logger Logger
+	orm    *Orm
+	pool   *sync.Pool
 }
 
 type Db interface {
@@ -44,7 +44,7 @@ type Execer interface {
 	ExecOrm(s *SqlInfo, dest interface{})Result
 	//use logger to printf debug log
 	Debug(format string, v ...interface{})
-	driver.Dialector
+	driver.Driver
 }
 
 var (
@@ -66,8 +66,9 @@ func OpenDb(driverName,dataSource string, opts... Option) (Db, error) {
 		driverName: driverName,
 		SqlDb: 		db,
 		orm:		NewOrm(),
-		Dialector:		driver.MDialector[driverName],
+		Driver:		driver.MDriver[driverName],
 		logger: 	defaultLog,
+		pool: 		&sync.Pool{},
 	}
 	gsqlDb.pool.New = func() interface{} {
 		return gsqlDb.NewSqlInfo()
@@ -119,9 +120,11 @@ func(db *gsql) Commit() error {
 func (db *gsql) clone() *gsql {
 	d := &gsql{
 		driverName: db.driverName,
-		SqlDb:         db.SqlDb,
+		SqlDb:      db.SqlDb,
 		logger:     db.logger,
 		orm:        db.orm,
+		Driver:     db.Driver,
+		pool: 		db.pool,
 	}
 	return d
 }
@@ -138,7 +141,6 @@ func (db *gsql)NewSqlInfo() *SqlInfo{
 		driverName: db.driverName,
 		execer: db,
 		sql:	&sqlBuilder{},
-		omit: make(map[string]int),
 	}
 }
 

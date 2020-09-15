@@ -18,10 +18,10 @@ func SetLogger(logger Logger) Option {
 	})
 }
 
-func SetDialector(driver driver.Dialector) Option {
+func SetDriver(driver driver.Driver) Option {
 	return optionFunc(func(db *gsql) {
-		db.Dialector = driver
-		panic("don't support placeholder")
+		db.Driver = driver
+		//panic("don't support placeholder")
 	})
 }
 

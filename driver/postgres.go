@@ -19,5 +19,5 @@ var postgresDialector *PostgresDialector
 
 func init() {
 	postgresDialector = &PostgresDialector{}
-	MDialector["postgres"] = postgresDialector
+	MDriver["postgres"] = postgresDialector
 }

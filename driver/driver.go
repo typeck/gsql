@@ -1,6 +1,6 @@
 package driver
 
-type Dialector interface {
+type Driver interface {
 	WritePlaceholder(writer Writer, l int)
 	GetPlaceholder(l int) string
 }
@@ -10,4 +10,4 @@ type Writer interface {
 	WriteByte(c byte) error
 }
 
-var MDialector = make(map[string]Dialector)
+var MDriver = make(map[string]Driver)

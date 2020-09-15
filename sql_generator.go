@@ -15,7 +15,6 @@ type SqlInfo struct {
 	method 		[]string
 	condition	[]string
 	values 		[]interface{}
-	omit 		map[string]int
 	isDebug 	bool
 	driverName 	string
 	execer 		Execer
@@ -25,13 +24,12 @@ func (s *SqlInfo) Reset() {
 	s.tableName  = ""
 	s.sql = &sqlBuilder{}
 	s.action = ""
-	s.cols = nil
-	s.params = nil
-	s.method = nil
-	s.condition = nil
-	s.values = nil
+	s.cols = s.cols[:0]
+	s.params = s.params[:0]
+	s.method = s.method[:0]
+	s.condition = s.condition[:0]
+	s.values = s.values[:0]
 	s.isDebug = false
-	s.omit = make(map[string]int)
 }
 
 func (s *SqlInfo)Query(dest... interface{}) Result {

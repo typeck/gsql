@@ -15,5 +15,5 @@ var mysqlDialector *PostgresDialector
 
 func init() {
 	mysqlDialector = &PostgresDialector{}
-	MDialector["postgres"] = mysqlDialector
+	MDriver["postgres"] = mysqlDialector
 }
