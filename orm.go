@@ -20,102 +20,35 @@ func NewOrm() *Orm {
 	}
 }
 
-func (o *Orm) BuildValues(dest interface{}, cols[]string) ([]interface{}, error) {
+func (o *Orm) BuildValuesCols(s *SqlInfo, dest interface{}) ([]interface{}, error) {
 	ptr := types.UnpackEFace(dest).Data
-	typ := types.UnpackEFace(dest).Typ
-
-	structInfo, err := o.getStructInfo(typ, dest)
+	var values []interface{}
+	structInfo, err := o.GetStructInfo(dest)
 	if err != nil {
 		return nil, err
 	}
 	if structInfo == nil {
 		return nil, errors.New("nil struct map cache.")
 	}
-
-	return o.BuildValuesByPtr(ptr, structInfo, cols)
-}
-
-//using struct ptr and struct field offset to build values memory addr.
-func (o *Orm)BuildValuesByPtr(ptr unsafe.Pointer, structInfo *types.StructInfo, cols []string) ([]interface{}, error){
-	if ptr == nil {
-		return nil, errors.New("nil ptr.")
-	}
-	fields := structInfo.Fields
-	fieldsWithStruct := structInfo.FieldsWithStruct
-	var values [] interface{}
-	for _, col := range cols {
-		if v, ok := fields[col]; ok {
-			switch v.Typ.Kind() {
-			case reflect.Int:
-				filedPtr := (*int)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.String:
-				filedPtr := (*string)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Int64:
-				filedPtr := (*int64)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Float64:
-				filedPtr := (*float64)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Uint64:
-				filedPtr := (*uint64)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Int32:
-				filedPtr := (*int32)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Bool:
-				filedPtr := (*bool)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Complex64:
-				filedPtr := (*complex64)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Complex128:
-				filedPtr := (*complex128)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Int16:
-				filedPtr := (*int16)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Int8:
-				filedPtr := (*int8)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Uint32:
-				filedPtr := (*uint32)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Uint16:
-				filedPtr := (*uint16)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Uint8:
-				filedPtr := (*uint8)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			case reflect.Float32:
-				filedPtr := (*float32)(unsafe.Pointer(uintptr(ptr) + v.Offset))
-				values = append(values, filedPtr)
-			}
-		}else {
-			for _, strus := range fieldsWithStruct {
-				if structInfo := strus.EmbeddedStruct; structInfo == nil {
-					continue
-				}
-				var fPtr unsafe.Pointer
-				switch strus.Typ.Kind() {
-				case reflect.Ptr:
-					fPtr = unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(ptr) + strus.Offset)))
-				case reflect.Struct:
-					fPtr = unsafe.Pointer(uintptr(ptr) + strus.Offset)
-				}
-				vs, err := o.BuildValuesByPtr(fPtr, strus.EmbeddedStruct, []string{col})
-				if err != nil {
-					return nil, err
-				}
-				values = append(values, vs...)
-			}
+	if len(s.cols) != 0 {
+		values, err = structInfo.BuildValuesByPtr(ptr, s.cols)
+		if err != nil {
+			return nil, err
 		}
+	}else {
+		values, s.cols, err = structInfo.BuildValuesCols(ptr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if s.tableName == "" {
+		s.tableName = structInfo.Name
 	}
 	return values, nil
 }
 
-func (o *Orm)getStructInfo(typ unsafe.Pointer, dest interface{}) (*types.StructInfo, error){
+func (o *Orm)GetStructInfo(dest interface{}) (*types.StructInfo, error){
+	typ := types.UnpackEFace(dest).Typ
 	if value, ok := o.structCache.Load(typ); ok {
 		return value.(*types.StructInfo), nil
 	}
@@ -171,24 +104,22 @@ func(o *Orm) InvokeCols(s *SqlInfo,dest interface{}) error {
 	if s.tableName != "" && len(s.cols) > 0{
 		return nil
 	}
-	typ := types.UnpackEFace(dest).Typ
-
-	structInfo, err := o.getStructInfo(typ, dest)
+	structInfo, err := o.GetStructInfo(dest)
 	if err != nil {
 		return  err
 	}
 	if structInfo == nil {
 		return  errors.New("nil struct map cache.")
 	}
-	name, cols := structInfo.GetNameAndCols()
 	if s.tableName == "" {
-		s.tableName = name
+		s.tableName = structInfo.GetName()
 	}
 	if len(s.cols) == 0 {
-		s.cols = cols
+		s.cols = structInfo.GetCols()
 	}
 
 	return  nil
 }
+
 
 

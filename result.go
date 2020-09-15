@@ -20,10 +20,8 @@ type Result interface {
 type Scanner interface {
 	//scan into vals
 	scanVal(dest ...interface{})
-	//scan into *struct
-	scan(orm *Orm, dest interface{})
 	//scan into *[]*struct
-	scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo)
+	scanAll(destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo)
 }
 
 type result struct {
@@ -91,22 +89,7 @@ func( r *result)scanVal(dest ...interface{})  {
 	}
 }
 
-func (r *result) scan(orm *Orm, dest interface{}) {
-	cols, err := r.rows.Columns()
-	if err != nil {
-		r.error = err
-		return
-	}
-
-	values, err := orm.BuildValues(dest, cols)
-	if err != nil {
-		r.error = err
-		return
-	}
-	r.scanVal(values...)
-}
-
-func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo) {
+func (r *result) scanAll(destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo) {
 	if r.error != nil {
 		return
 	}
@@ -120,7 +103,7 @@ func (r *result) scanAll(orm *Orm, destPtr unsafe.Pointer,structInfo *types.Stru
 	for r.rows.Next() {
 		//new struct
 		ptr := structInfo.New()
-		values, err := orm.BuildValuesByPtr(ptr, structInfo, cols)
+		values, err := structInfo.BuildValuesByPtr(ptr, cols)
 		if err != nil {
 			r.error = err
 			return

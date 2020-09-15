@@ -43,7 +43,7 @@ type Time struct {
 
 func init() {
 	var err error
-	db, err = gsql.OpenDb("mysql","type:tang@(127.0.0.1)/test")
+	db, err = gsql.OpenDb("mysql","type:tang@(127.0.0.1)/test?parseTime=true")
 	if err != nil {
 		panic(err)
 	}

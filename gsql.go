@@ -23,7 +23,7 @@ type gsql struct {
 
 type Db interface {
 	//new for every execution
-	New() *SqlInfo
+	Pre() *SqlInfo
 	//begin transaction
 	Begin() (*gsql, error)
 	Rollback() error
@@ -129,7 +129,7 @@ func (db *gsql) clone() *gsql {
 	return d
 }
 
-func (db *gsql)New() *SqlInfo {
+func (db *gsql)Pre() *SqlInfo {
 	s := db.pool.Get().(*SqlInfo)
 	s.Reset()
 	return s
@@ -161,24 +161,23 @@ func(db *gsql)ExecVal(s *SqlInfo, dest... interface{}) Result {
 
 func(db *gsql) Get(s *SqlInfo, dest interface{}) Result {
 	orm := db.orm
-	 res := &result{}
-	err := orm.InvokeCols(s, dest)
+	res := &result{}
+	values, err := orm.BuildValuesCols(s, dest)
 	if err != nil {
 		res.error = err
 		return res
 	}
-
 	res = db.query(s)
 	if res.error != nil {
 		return res
 	}
 
-	scan(res, orm, dest)
+	scan(res, values...)
 	return res
 }
 
-func scan(scanner Scanner,orm *Orm, dest interface{}) {
-	scanner.scan(orm, dest)
+func scan(scanner Scanner,values... interface{}) {
+	scanner.scanVal(values...)
 }
 
 
@@ -206,41 +205,33 @@ func (db *gsql) Gets(s *SqlInfo, dest interface{}) Result {
 	if res.error != nil {
 		return res
 	}
-	scanAll(res,orm, destPtr, structInfo, sliceInfo)
+	scanAll(res, destPtr, structInfo, sliceInfo)
 	return res
 }
 
 func invokeCols(s *SqlInfo, structInfo *types.StructInfo) {
-	name, cols := structInfo.GetNameAndCols()
 	if s.tableName == "" {
-		s.tableName = name
+		s.tableName = structInfo.GetName()
 	}
 	if len(s.cols) == 0 {
-		s.cols = cols
+		s.cols = structInfo.GetCols()
 	}
 }
 
-func scanAll(scanner Scanner, orm *Orm, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo) {
-	scanner.scanAll(orm, destPtr, structInfo, sliceInfo)
+func scanAll(scanner Scanner, destPtr unsafe.Pointer,structInfo *types.StructInfo, sliceInfo *types.SliceInfo) {
+	scanner.scanAll(destPtr, structInfo, sliceInfo)
 }
 
 func (db *gsql) ExecOrm(s *SqlInfo, dest interface{})Result {
 	orm := db.orm
 	res := &result{}
-	err := orm.InvokeCols(s, dest)
+	values, err := orm.BuildValuesCols(s, dest)
 	if err != nil {
 		res.error = err
 		return res
 	}
-
-	values, err := orm.BuildValues(dest, s.cols)
-	if err != nil {
-		res.error = err
-		return res
-	}
-	s.values = values
-	s.values = append(s.values, s.params...)
-	s.params = s.values
+	values = append(values, s.params...)
+	s.params = values
 
 	return db.exec(s)
 }

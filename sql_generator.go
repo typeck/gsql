@@ -258,6 +258,7 @@ func (s *SqlInfo)buildDelete() error {
 	return nil
 }
 
+//never use debug in prod env.
 func (s *SqlInfo)Debug() *SqlInfo{
 	s.isDebug = true
 	return s
