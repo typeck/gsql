@@ -7,16 +7,16 @@ import (
 )
 
 func TestTime(t *testing.T) {
-		rows,err := db.Query(`SElECT create_time FROM user WHERE id=? `,1)
+		rows,err := db.Query(`SElECT update_time FROM user WHERE id=? `,1)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for rows.Next() {
-			var createTime time.Time
-			err := rows.Scan(&createTime)
+			var updateTime time.Time
+			err := rows.Scan(&updateTime)
 			if err != nil {
 				t.Fatal(err)
 			}
-			fmt.Println(createTime)
+			fmt.Println(updateTime)
 		}
 }

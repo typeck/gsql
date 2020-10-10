@@ -31,6 +31,13 @@ func UnpackEFace(obj interface{}) *EmptyInterface {
 	return (*EmptyInterface)(unsafe.Pointer(&obj))
 }
 
+func CanElem(p reflect.Type) bool {
+	if p.Kind() == reflect.Ptr || p.Kind() == reflect.Slice {
+		return true
+	}
+	return false
+}
+
 func Indirection(p reflect.Type) reflect.Type {
 	return p.Elem()
 }

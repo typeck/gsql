@@ -103,7 +103,7 @@ func (r *result) scanAll(destPtr unsafe.Pointer,structInfo *types.StructInfo, sl
 	for r.rows.Next() {
 		//new struct
 		ptr := structInfo.New()
-		values, err := structInfo.BuildValuesByPtr(ptr, cols)
+		values, err := structInfo.BuildValues(ptr, cols)
 		if err != nil {
 			r.error = err
 			return

@@ -22,7 +22,7 @@ type SqlInfo struct {
 
 func (s *SqlInfo) Reset() {
 	s.tableName  = ""
-	s.sql = &sqlBuilder{}
+	s.sql.Reset()
 	s.action = ""
 	s.cols = s.cols[:0]
 	s.params = s.params[:0]
@@ -84,15 +84,12 @@ func (s *SqlInfo)Table(tableName string) *SqlInfo {
 
 //columns, Cols("name, id", "phone")
 func (s *SqlInfo)Cols(cols... string) *SqlInfo {
-	var tmp [] string
 	for i, _ := range cols {
 		cols := strings.Split(cols[i], ",")
 		for _, c := range cols {
-
-			tmp = append(tmp, strings.TrimSpace(c))
+			s.cols = append(s.cols, strings.TrimSpace(c))
 		}
 	}
-	s.cols = tmp
 	return s
 }
 
@@ -153,9 +150,9 @@ func(s *SqlInfo)Condition(condition string, args... interface{}) *SqlInfo {
 }
 
 //raw sql; Raw("select * from user where id=?",1).And("name=?","jack")
-func(s *SqlInfo)Raw(raw string, dest... interface{})*SqlInfo {
+func(s *SqlInfo)Raw(raw string, args... interface{})*SqlInfo {
 	s.sql.Builder.WriteString(raw)
-	s.values = dest
+	s.params = append(s.params,args...)
 	return s
 }
 
@@ -190,15 +187,24 @@ func(s *SqlInfo)done() error {
 		str := strings.ReplaceAll(s.sql.String(), s.execer.GetPlaceholder(0), "%v")
 		var args []interface{}
 		for i, p := range s.params {
+			var arg interface{}
 			str = strings.ReplaceAll(str, s.execer.GetPlaceholder(i), "%v")
 			t := reflect.TypeOf(p)
-			if t.Kind() == reflect.Ptr {
-				args = append(args, reflect.ValueOf(p).Elem().Interface())
-				continue
+			switch t.Kind() {
+			case reflect.Ptr:
+				v := reflect.ValueOf(p).Elem()
+				arg = v.Interface()
+				if t.Elem().Kind() == reflect.String {
+					arg = "'" + arg.(string) + "'"
+				}
+			case reflect.String:
+				arg = "'" + p.(string) + "'"
+			default:
+				arg = p
 			}
-			args = append(args, p)
+			args = append(args, arg)
 		}
-		s.execer.Debug(str, s.params...)
+		s.execer.Debug(str, args...)
 	}
 	return nil
 }

@@ -162,7 +162,7 @@ func(db *gsql)ExecVal(s *SqlInfo, dest... interface{}) Result {
 func(db *gsql) Get(s *SqlInfo, dest interface{}) Result {
 	orm := db.orm
 	res := &result{}
-	values, err := orm.BuildValuesCols(s, dest)
+	values, err := orm.BuildValuesCols(s, dest, false)
 	if err != nil {
 		res.error = err
 		return res
@@ -225,7 +225,7 @@ func scanAll(scanner Scanner, destPtr unsafe.Pointer,structInfo *types.StructInf
 func (db *gsql) ExecOrm(s *SqlInfo, dest interface{})Result {
 	orm := db.orm
 	res := &result{}
-	values, err := orm.BuildValuesCols(s, dest)
+	values, err := orm.BuildValuesCols(s, dest, true)
 	if err != nil {
 		res.error = err
 		return res

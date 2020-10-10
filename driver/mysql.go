@@ -1,19 +1,17 @@
 package driver
 
-type MysqlDialector struct {
+type MysqlDriver struct {
 }
 
-func(d *MysqlDialector) WritePlaceholder(writer Writer, l int) {
+func(d *MysqlDriver) WritePlaceholder(writer Writer, l int) {
 	writer.WriteByte('?')
 }
 
-func (d *MysqlDialector) GetPlaceholder(l int) string {
+func (d *MysqlDriver) GetPlaceholder(l int) string {
 	return "?"
 }
 
-var mysqlDialector *PostgresDialector
-
 func init() {
-	mysqlDialector = &PostgresDialector{}
-	MDriver["mysql"] = mysqlDialector
+	mysqlDriver := &MysqlDriver{}
+	MDriver["mysql"] = mysqlDriver
 }

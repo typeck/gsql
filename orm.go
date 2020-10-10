@@ -20,7 +20,7 @@ func NewOrm() *Orm {
 	}
 }
 
-func (o *Orm) BuildValuesCols(s *SqlInfo, dest interface{}) ([]interface{}, error) {
+func (o *Orm) BuildValuesCols(s *SqlInfo, dest interface{}, omitempty bool) ([]interface{}, error) {
 	ptr := types.UnpackEFace(dest).Data
 	var values []interface{}
 	structInfo, err := o.GetStructInfo(dest)
@@ -31,12 +31,12 @@ func (o *Orm) BuildValuesCols(s *SqlInfo, dest interface{}) ([]interface{}, erro
 		return nil, errors.New("nil struct map cache.")
 	}
 	if len(s.cols) != 0 {
-		values, err = structInfo.BuildValuesByPtr(ptr, s.cols)
+		values, err = structInfo.BuildValues(ptr, s.cols)
 		if err != nil {
 			return nil, err
 		}
 	}else {
-		values, s.cols, err = structInfo.BuildValuesCols(ptr)
+		values, s.cols, err = structInfo.BuildValuesCols(ptr, omitempty)
 		if err != nil {
 			return nil, err
 		}
