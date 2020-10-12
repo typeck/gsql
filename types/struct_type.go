@@ -453,21 +453,17 @@ func (s *StructInfo)BuildValuesCols(ptr unsafe.Pointer, omitempty bool) ([]inter
 			continue
 		}
 		if strus.Typ == TimePtrType || strus.Typ == TimeType {
-			cols = append(cols, k)
 			var valuePtr *time.Time
 			if strus.Typ == TimeType {
 				valuePtr = (*time.Time)(unsafe.Pointer(uintptr(ptr)+strus.Offset))
-				if (*valuePtr).IsZero() && strus.OmitEmpty == true && omitempty {
-					continue
-				}
-				values = append(values, valuePtr)
-			} else {
-				valuePtr = (*time.Time)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(uintptr(ptr) + strus.Offset))))
-				if (*valuePtr).IsZero() && strus.OmitEmpty == true && omitempty {
-					continue
-				}
-				values = append(values, valuePtr)
+			}else {
+				valuePtr = (*time.Time)(unsafe.Pointer(uintptr(ptr)+strus.Offset))
 			}
+			if (*valuePtr).IsZero() && strus.OmitEmpty == true && omitempty {
+				continue
+			}
+			values = append(values, valuePtr)
+			cols = append(cols, k)
 			continue
 		}
 		var fPtr unsafe.Pointer
