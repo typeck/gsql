@@ -7,7 +7,8 @@ Lightweight orm and extension of raw sql.
 * high-performance, without reflect value
 * Sql Generator support ORM and raw SQL operation
 * Compatible with `database/sql`
-* Driver support: [MYSQL](github.com/go-sql-driver/mysql)
+* Driver support: [MYSQL](github.com/go-sql-driver/mysql),[postgres](https://github.com/lib/pq)
+* omitempty support
 * Transaction support
 
 ## Usages
@@ -15,63 +16,63 @@ Lightweight orm and extension of raw sql.
 * data structure
 ```go
 type User struct {
-	Id         int    `json:"id" db:"id" json:"id"`
-	Name       string `json:"name" db:"name"`
-	Account    string `json:"account" db:"account"`
-	Company    string `json:"company" db:"company"`
-	Pwd        string `json:"pwd" db:"pwd"`
-	Phone      string `json:"phone" db:"phone"`
-	Email      string `json:"email" db:"email"`
-	Roles      int    `json:"role" db:"roles"`
-	Status     int    `json:"status" db:"status"`
-	Time      Time    `json:"time"`
+	Name    string `json:"name" db:"name,omitempty"`
+	Account string `json:"account" db:"account,omitempty"`
+	Company string `json:"company" db:"company,omitempty"`
+	Pwd     string `json:"pwd" db:"pwd,omitempty"`
+	Phone   string `json:"phone" db:"phone,omitempty"`
+	Email   string `json:"email" db:"email,omitempty"`
+	Roles   int    `json:"role" db:"roles,omitempty"`
+	Status  int    `json:"status" db:"status,omitempty"`
+	Base    *Base   `json:"base" db:"base,omitempty"`
 }
 
-type Time struct {
-	CreateTime string `json:"create_time" db:"create_time"`
-	UpdateTime string `json:"update_time" db:"update_time"`
+type Base struct {
+	Id         int       `json:"id" db:"id,omitempty"`
+	CreateTime time.Time `json:"create_time" db:"create_time,omitempty"`
+	UpdateTime time.Time `json:"update_time" db:"update_time,omitempty"`
 }
+
 ```
 
 * Open database
 
-`db, err = gsql.OpenDb("mysql","type:tang@(127.0.0.1)/test")`
+```go
+
+db, err := gsql.OpenDb("mysql","type:tang@(127.0.0.1)/test?parseTime=true")
+
+```
 
 * query
 
 ```go
 //Query one 
-err := db.New().Debug().Table("user").Where("id=1").
-	Cols("id", "name", "status", "company", "account", "company", "email, phone, pwd").
-	Query(&u.Id, &u.Name, &u.Status, &u.Company, &u.Account, &u.Company,  &u.Email, &u.Phone, &u.Pwd).Err()
-
-err := db.New().Raw("select id,name from user where id=1").And("name=?",name).Query(u.Id, u.Name).Err()
-
 var u = &User{}
-err := db.New().Debug().Where("id=?",1).Cols("name, id").Get(u).Err()
+err := db.Pre().Debug().Cols("id", "name").Where("id=?",1).Get(u).Err()
 
 //Query multiple
-rows, err := db.New().Debug().Table("user").Rows()
-for rows.Next(){
-    ...
-}
-
 var us []*User
-err := db.New().Debug().Gets(&us).Err()
+err := db.Pre().Debug().Where("id>?", 5).Gets(&us).Err()
 ```
 
 * exec
 
 ```go
-id,err := db.New().Table("user").Debug().Cols("name, pwd").Exec("insert",u.Name, u.Pwd).LastInsertId()
+var u = User{
+	Name:       "test",
+	Account:    "test@test.com",
+	Company:    "",
+	Pwd:        "",
+	Phone:      "",
+	Email:      "",
+	Roles:      0,
+	Status:     0,
+	Base: &Base{Id: 22},
+}
 
-affectRows, err := db.New().Table("user").Debug().Where("name=?",&u.Name).And("pwd=?",&u.Pwd).
-	Cols("phone, company").Exec("update", "133","afg").RowsAffected()
+//Insert
+id,err := db.Pre().Debug().Create(&u).LastInsertId()
 
-
-id,err := db.New().Debug().Create(&u).LastInsertId()
-
-affect,err := db.New().Debug().Where("id=?", 3).Cols("name, account").Update(&u).RowsAffected()
-
-err := db.New().Table("user").Debug().Where("id=?",id).Exec("delete").Err()
+//Update
+affect,err := db.Pre().Debug().Where("id=?", 23).Update(&u).RowsAffected()
 ```
